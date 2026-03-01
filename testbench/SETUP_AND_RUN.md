@@ -1,10 +1,9 @@
 # Testbench Setup and Run Guide
 
-This guide is for judges and reviewers to reproduce the project behavior quickly.
+This guide is for judges and reviewers to reproduce the backend behavior quickly.
 
 ## Prerequisites
 - Python 3.11+
-- Node.js 18+ (if frontend is enabled)
 - macOS/Linux terminal
 
 ## 1) Clone and Enter
@@ -43,28 +42,18 @@ Expected behavior:
 - Returns diagnosis entries with scores and evidence.
 - Returns a 7-day plan with actionable tasks.
 
-## 6) Frontend (if available)
+## 6) Example Direct Analyze Payload
 ```bash
-cd frontend
-npm install
-npm run dev
+curl -X POST http://127.0.0.1:8000/analyze \
+  -H "Content-Type: application/json" \
+  -d @data/request_example.json
 ```
-Open the local URL shown in terminal.
 
-## 7) Test Cases
-
-### Case A: Normal Progress
-- Mixed accuracy with recent improvement.
-- Expected: lower-risk diagnosis and balanced plan.
-
-### Case B: Inactivity Gap
-- No activity for >14 days.
-- Expected: inactivity decay detection and spaced recall tasks.
-
-### Case C: Fast but Error-Prone
-- Low response times with repeated wrong attempts.
-- Expected: careless mistake diagnosis and verification drills.
+## 7) Test Cases Covered by Sample
+- Concept weakness with low accuracy and high response time
+- Fast-but-error-prone behavior
+- Inactivity decay from long study gap
 
 ## Notes
-- This testbench uses non-PII synthetic or anonymized data.
-- All outputs are deterministic-format JSON for reproducibility.
+- This testbench uses non-PII synthetic data.
+- Output is deterministic-format JSON for reproducibility.
