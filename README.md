@@ -3,12 +3,9 @@
 LEAP Copilot is an AI-powered learning support system that models a student's evolving learning state and generates explainable, actionable weekly plans.
 
 ## Current Build Status
-Phase 1 backend MVP is implemented:
-- event ingestion endpoint
-- learning-state engine
-- diagnosis engine
-- 7-day planner
-- sample analysis endpoint
+Implemented:
+- Phase 1 backend MVP
+- Phase 2 lightweight dashboard frontend
 
 ## API Endpoints
 - `GET /health`
@@ -24,19 +21,27 @@ pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
-Test:
+In another terminal:
 ```bash
-curl http://127.0.0.1:8000/health
-curl -X POST http://127.0.0.1:8000/analyze/sample
+cd /Users/jaiveersinghkhanuja/Documents/Playground/leap-copilot-microsoft-track/frontend
+python3 -m http.server 5173
 ```
+
+Open:
+- `http://127.0.0.1:5173`
+
+Then test:
+- `Check API Health`
+- `Analyze Sample`
 
 ## Repository Structure
 - `backend/app/` API and analysis pipeline
-- `data/` sample dataset
+- `frontend/` dashboard UI (HTML/CSS/JS)
+- `data/` sample dataset and request JSON
 - `docs/` architecture and competitive analysis
 - `testbench/` grader run instructions
 
 ## Responsible AI Notes
 - Recommendation outputs include explicit evidence fields.
 - Output schema is deterministic and structured.
-- Student actions are designed to be editable by humans in UI phase.
+- Student actions are designed to be editable by humans in the next phase.

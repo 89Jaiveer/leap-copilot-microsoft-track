@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LEAP Copilot Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-a"></div>
+    <div class="bg-orb orb-b"></div>
+
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="kicker">MICROSOFT TRACK MVP</p>
+          <h1>LEAP Copilot</h1>
+          <p class="subtitle">
+            Explainable learning-state diagnosis and weekly action planning.
+          </p>
+        </div>
+        <div class="actions">
+          <button id="analyzeSampleBtn" class="btn btn-primary">Analyze Sample</button>
+          <button id="healthBtn" class="btn btn-secondary">Check API Health</button>
+        </div>
+      </header>
+
+      <section class="status" id="statusBox">
+        <span class="status-label">Status</span>
+        <span id="statusText">Idle</span>
+      </section>
+
+      <section class="grid two-up">
+        <article class="panel">
+          <h2>Concept States</h2>
+          <p class="hint">Weakest concepts are shown first.</p>
+          <div id="conceptStates" class="stack"></div>
+        </article>
+
+        <article class="panel">
+          <h2>Diagnosis</h2>
+          <p class="hint">Cause classification with confidence score.</p>
+          <div id="diagnosis" class="stack"></div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>7-Day Action Plan</h2>
+        <p class="hint">Actionable tasks with evidence.</p>
+        <div id="plan" class="plan-grid"></div>
+      </section>
+    </main>
+
+    <template id="cardTemplate">
+      <div class="card reveal">
+        <div class="card-head">
+          <h3 class="card-title"></h3>
+          <span class="chip"></span>
+        </div>
+        <p class="card-body"></p>
+        <ul class="evidence"></ul>
+      </div>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

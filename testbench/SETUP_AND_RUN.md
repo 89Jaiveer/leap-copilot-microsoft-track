@@ -1,6 +1,6 @@
 # Testbench Setup and Run Guide
 
-This guide is for judges and reviewers to reproduce the backend behavior quickly.
+This guide is for judges and reviewers to reproduce backend and frontend behavior quickly.
 
 ## Prerequisites
 - Python 3.11+
@@ -42,14 +42,27 @@ Expected behavior:
 - Returns diagnosis entries with scores and evidence.
 - Returns a 7-day plan with actionable tasks.
 
-## 6) Example Direct Analyze Payload
+## 6) Launch Frontend Dashboard
+In a new terminal:
+```bash
+cd frontend
+python3 -m http.server 5173
+```
+Open:
+- `http://127.0.0.1:5173`
+
+Then click:
+- `Check API Health`
+- `Analyze Sample`
+
+## 7) Example Direct Analyze Payload
 ```bash
 curl -X POST http://127.0.0.1:8000/analyze \
   -H "Content-Type: application/json" \
   -d @data/request_example.json
 ```
 
-## 7) Test Cases Covered by Sample
+## 8) Test Cases Covered by Sample
 - Concept weakness with low accuracy and high response time
 - Fast-but-error-prone behavior
 - Inactivity decay from long study gap
