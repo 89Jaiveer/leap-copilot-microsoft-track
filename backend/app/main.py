@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from .db import compute_metrics, init_db, insert_feedback, insert_recommendation
 from .models import (
@@ -18,6 +19,13 @@ from .models import (
 from .pipeline import build_seven_day_plan
 
 app = FastAPI(title="LEAP Copilot API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")

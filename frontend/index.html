@@ -22,18 +22,66 @@
           <p class="kicker">MICROSOFT TRACK MVP</p>
           <h1>LEAP Copilot</h1>
           <p class="subtitle">
-            Explainable learning-state diagnosis and weekly action planning.
+            Explainable learning-state diagnosis, human feedback loop, and measurable recommendation quality.
           </p>
-        </div>
-        <div class="actions">
-          <button id="analyzeSampleBtn" class="btn btn-primary">Analyze Sample</button>
-          <button id="healthBtn" class="btn btn-secondary">Check API Health</button>
         </div>
       </header>
 
-      <section class="status" id="statusBox">
-        <span class="status-label">Status</span>
-        <span id="statusText">Idle</span>
+      <section class="panel controls">
+        <div class="api-row">
+          <label for="apiBase">API Base</label>
+          <input id="apiBase" value="http://127.0.0.1:8000" />
+        </div>
+
+        <div class="actions">
+          <button id="healthBtn" class="btn btn-secondary">Check API Health</button>
+          <button id="analyzeSampleBtn" class="btn btn-primary">Analyze Sample</button>
+          <button id="analyzeCustomBtn" class="btn btn-primary">Analyze Custom JSON</button>
+          <button id="metricsBtn" class="btn btn-secondary">Refresh Metrics</button>
+        </div>
+
+        <div class="status" id="statusBox">
+          <span class="status-label">Status</span>
+          <span id="statusText">Idle</span>
+        </div>
+
+        <div class="request-box">
+          <p class="hint">Custom analyze payload</p>
+          <textarea id="requestInput" rows="10"></textarea>
+        </div>
+      </section>
+
+      <section class="grid three-up">
+        <article class="panel metric">
+          <h3>Latest Recommendation ID</h3>
+          <p id="latestRecommendation" class="metric-value">-</p>
+        </article>
+        <article class="panel metric">
+          <h3>Actionability Rate</h3>
+          <p id="metricActionability" class="metric-value">-</p>
+        </article>
+        <article class="panel metric">
+          <h3>Explainability Coverage</h3>
+          <p id="metricExplainability" class="metric-value">-</p>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>Human Feedback</h2>
+        <div class="feedback-row">
+          <label for="feedbackRecommendationId">Recommendation ID</label>
+          <input id="feedbackRecommendationId" type="number" min="1" placeholder="Auto-filled after analysis" />
+          <label for="feedbackAction">Action</label>
+          <select id="feedbackAction">
+            <option value="accept">accept</option>
+            <option value="edit">edit</option>
+            <option value="reject">reject</option>
+          </select>
+        </div>
+        <textarea id="feedbackNote" rows="2" placeholder="Why you accepted/edited/rejected"></textarea>
+        <div class="actions">
+          <button id="submitFeedbackBtn" class="btn btn-primary">Submit Feedback</button>
+        </div>
       </section>
 
       <section class="grid two-up">
@@ -52,8 +100,13 @@
 
       <section class="panel">
         <h2>7-Day Action Plan</h2>
-        <p class="hint">Actionable tasks with evidence.</p>
+        <p class="hint">Actionable tasks with evidence and expected outcomes.</p>
         <div id="plan" class="plan-grid"></div>
+      </section>
+
+      <section class="panel">
+        <h2>System Metrics</h2>
+        <div id="metricsPanel" class="stack"></div>
       </section>
     </main>
 
