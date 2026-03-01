@@ -11,6 +11,8 @@ Implemented:
 - `GET /health`
 - `POST /analyze`
 - `POST /analyze/sample`
+- `POST /feedback`
+- `GET /metrics`
 
 ## Quick Start
 ```bash
@@ -33,6 +35,15 @@ Open:
 Then test:
 - `Check API Health`
 - `Analyze Sample`
+
+### Feedback + Metrics quick test
+```bash
+curl -X POST http://127.0.0.1:8000/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"recommendation_id":1,"action":"accept","note":"Looks useful"}'
+
+curl http://127.0.0.1:8000/metrics
+```
 
 ## Repository Structure
 - `backend/app/` API and analysis pipeline

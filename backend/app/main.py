@@ -1,15 +1,28 @@
 from __future__ import annotations
 
 import csv
+import json
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 
-from .models import AnalyzeRequest, LearningEvent
+from .db import compute_metrics, init_db, insert_feedback, insert_recommendation
+from .models import (
+    AnalyzeRequest,
+    FeedbackRequest,
+    FeedbackResponse,
+    LearningEvent,
+    MetricsResponse,
+)
 from .pipeline import build_seven_day_plan
 
 app = FastAPI(title="LEAP Copilot API", version="0.1.0")
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
 
 
 @app.get("/health")
@@ -21,7 +34,9 @@ def health() -> dict[str, str]:
 def analyze(payload: AnalyzeRequest):
     if not payload.events:
         raise HTTPException(status_code=400, detail="events cannot be empty")
-    return build_seven_day_plan(payload)
+    response = build_seven_day_plan(payload)
+    recommendation_id = insert_recommendation(payload.student_id, response.model_dump())
+    return response.model_copy(update={"recommendation_id": recommendation_id})
 
 
 @app.post("/analyze/sample")
@@ -50,4 +65,27 @@ def analyze_sample():
             )
 
     request = AnalyzeRequest(student_id="student_001", daily_minutes=45, events=events)
-    return build_seven_day_plan(request)
+    response = build_seven_day_plan(request)
+    recommendation_id = insert_recommendation(request.student_id, response.model_dump())
+    return response.model_copy(update={"recommendation_id": recommendation_id})
+
+
+@app.post("/feedback", response_model=FeedbackResponse)
+def feedback(payload: FeedbackRequest):
+    edited_json = json.dumps([item.model_dump() for item in payload.edited_plan]) if payload.edited_plan else None
+    try:
+        feedback_id = insert_feedback(
+            recommendation_id=payload.recommendation_id,
+            action=payload.action,
+            note=payload.note,
+            edited_json=edited_json,
+        )
+    except ValueError as err:
+        raise HTTPException(status_code=404, detail=str(err)) from err
+
+    return FeedbackResponse(ok=True, feedback_id=feedback_id, recommendation_id=payload.recommendation_id)
+
+
+@app.get("/metrics", response_model=MetricsResponse)
+def metrics():
+    return MetricsResponse(**compute_metrics())

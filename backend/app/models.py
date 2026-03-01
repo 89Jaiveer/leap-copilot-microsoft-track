@@ -60,9 +60,33 @@ class DailyTask(BaseModel):
 
 
 class AnalyzeResponse(BaseModel):
+    recommendation_id: int | None = None
     student_id: str
     generated_at: datetime
     concept_states: list[ConceptState]
     diagnosis: list[DiagnosisItem]
     seven_day_plan: list[DailyTask]
     summary: str
+
+
+class FeedbackRequest(BaseModel):
+    recommendation_id: int = Field(ge=1)
+    action: Literal["accept", "edit", "reject"]
+    note: str = ""
+    edited_plan: list[DailyTask] | None = None
+
+
+class FeedbackResponse(BaseModel):
+    ok: bool
+    feedback_id: int
+    recommendation_id: int
+
+
+class MetricsResponse(BaseModel):
+    total_recommendations: int
+    total_feedback: int
+    accept_rate: float
+    edit_rate: float
+    reject_rate: float
+    actionability_rate: float
+    explainability_coverage: float

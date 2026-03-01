@@ -41,6 +41,22 @@ Expected behavior:
 - Returns concept states sorted by weakest first.
 - Returns diagnosis entries with scores and evidence.
 - Returns a 7-day plan with actionable tasks.
+- Returns `recommendation_id` for feedback tracking.
+
+## 5.1) Submit Feedback (Human Override Signal)
+```bash
+curl -X POST http://127.0.0.1:8000/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"recommendation_id":1,"action":"accept","note":"Plan is clear"}'
+```
+
+## 5.2) View Metrics
+```bash
+curl http://127.0.0.1:8000/metrics
+```
+Expected behavior:
+- Shows feedback rates (`accept/edit/reject`).
+- Shows `actionability_rate` and `explainability_coverage`.
 
 ## 6) Launch Frontend Dashboard
 In a new terminal:
