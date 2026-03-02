@@ -101,3 +101,17 @@ class UserProfile(BaseModel):
     school_id: str
     name: str
     created_at: datetime
+
+
+class YouTubeVideo(BaseModel):
+    video_id: str
+    title: str
+    channel: str
+    duration: str | None = None
+    url: str
+    thumbnail: str
+
+
+class YouTubeSearchResponse(BaseModel):
+    query: str
+    results: list[YouTubeVideo]

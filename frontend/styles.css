@@ -126,6 +126,30 @@ th { color: var(--muted); }
   background: rgba(9, 15, 28, 0.88);
 }
 
+.youtube-item {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.yt-thumb {
+  width: 140px;
+  height: 80px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(122, 144, 255, 0.24);
+}
+
+.youtube-item a {
+  color: #7ed9ff;
+  text-decoration: none;
+}
+
+.youtube-item a:hover {
+  text-decoration: underline;
+}
+
 .plan-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .plan-card { border: 1px solid rgba(122, 144, 255, 0.24); border-radius: 12px; padding: 10px; background: rgba(9, 15, 28, 0.88); }
 .plan-head { display: flex; justify-content: space-between; gap: 8px; }
@@ -145,4 +169,6 @@ canvas { width: 100%; max-width: 100%; background: rgba(6,10,20,0.5); border-rad
 @media (max-width: 1060px) {
   .hero, .grid.two, .form-grid, .form-grid.six { grid-template-columns: 1fr; display: grid; }
   .hero { display: grid; }
+  .youtube-item { grid-template-columns: 1fr; }
+  .yt-thumb { width: 100%; height: auto; }
 }

@@ -45,14 +45,6 @@ const btn = {
   youtube: document.getElementById("youtubeBtn"),
 };
 
-const CHANNELS = [
-  "Khan Academy",
-  "The Organic Chemistry Tutor",
-  "Eddie Woo",
-  "Cognito",
-  "ExamSolutions",
-];
-
 function setStatus(text) {
   el.statusText.textContent = text;
 }
@@ -300,25 +292,41 @@ function renderInsights(data) {
   renderList(el.insights, insights, (line) => `<span>${line}</span>`);
 }
 
-function youtubeSearchLink(query) {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-}
-
-function renderYoutubeLinks(topic) {
+async function renderYoutubeLinks(topic) {
   if (!topic.trim()) {
     el.youtubeLinks.innerHTML = '<p class="muted">Enter a weak topic first.</p>';
     return;
   }
 
   const query = topic.trim();
-  const links = [
-    { label: `Top videos for ${query}`, url: youtubeSearchLink(`${query} explained for students`) },
-    ...CHANNELS.map((c) => ({ label: `${c} - ${query}`, url: youtubeSearchLink(`${c} ${query}`) })),
-  ];
+  setStatus(`Searching YouTube for: ${query}...`);
+  try {
+    const data = await jsonFetch(`/youtube/search?q=${encodeURIComponent(query)}&limit=6`);
+    if (!data.results?.length) {
+      el.youtubeLinks.innerHTML = '<p class="muted">No YouTube matches found for this topic.</p>';
+      setStatus("No YouTube results found.");
+      return;
+    }
 
-  el.youtubeLinks.innerHTML = links
-    .map((l) => `<div class="item"><a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.label}</a></div>`)
-    .join("");
+    el.youtubeLinks.innerHTML = data.results
+      .map(
+        (v) => `
+        <div class="item youtube-item">
+          <img src="${v.thumbnail}" alt="${v.title}" class="yt-thumb" />
+          <div>
+            <strong>${v.title}</strong>
+            <div class="muted">${v.channel}${v.duration ? ` • ${v.duration}` : ""}</div>
+            <a href="${v.url}" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
+          </div>
+        </div>
+      `
+      )
+      .join("");
+    setStatus(`Found ${data.results.length} YouTube videos for "${query}".`);
+  } catch (err) {
+    el.youtubeLinks.innerHTML = `<p class="muted">YouTube search failed: ${err.message}</p>`;
+    setStatus(`YouTube search failed: ${err.message}`);
+  }
 }
 
 function clearCanvas(canvas) {
@@ -543,7 +551,7 @@ btn.analyze.addEventListener("click", async () => {
 });
 
 btn.metrics.addEventListener("click", refreshMetrics);
-btn.youtube.addEventListener("click", () => renderYoutubeLinks(el.weakTopicInput.value));
+btn.youtube.addEventListener("click", () => void renderYoutubeLinks(el.weakTopicInput.value));
 
 (function init() {
   loadLocal();

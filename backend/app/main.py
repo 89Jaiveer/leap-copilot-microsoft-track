@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from datetime import datetime
+from html import unescape
 from pathlib import Path
+from urllib.parse import quote_plus
+from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +21,8 @@ from .models import (
     MetricsResponse,
     UserProfile,
     UserRegisterRequest,
+    YouTubeSearchResponse,
+    YouTubeVideo,
 )
 from .pipeline import build_seven_day_plan
 
@@ -52,6 +58,73 @@ def fetch_user(school_id: str):
     if not user:
         raise HTTPException(status_code=404, detail="user not found")
     return UserProfile(**user)
+
+
+def _extract_youtube_results(html: str, limit: int) -> list[YouTubeVideo]:
+    blocks = re.findall(r'"videoRenderer":\\{(.*?)\\}\\}\\],\"trackingParams\"', html)
+    results: list[YouTubeVideo] = []
+    seen: set[str] = set()
+
+    for block in blocks:
+        video_id_match = re.search(r'"videoId":"([^"]+)"', block)
+        if not video_id_match:
+            continue
+        video_id = video_id_match.group(1)
+        if video_id in seen:
+            continue
+
+        title_match = re.search(r'"title":\\{\"runs\":\\[\\{\"text\":\"([^"]+)"', block)
+        if not title_match:
+            title_match = re.search(r'"title":\\{\"simpleText\":\"([^"]+)"', block)
+        channel_match = re.search(r'"ownerText":\\{\"runs\":\\[\\{\"text\":\"([^"]+)"', block)
+        duration_match = re.search(r'"lengthText":\\{\"simpleText\":\"([^"]+)"', block)
+
+        title = unescape(title_match.group(1) if title_match else "Untitled video")
+        channel = unescape(channel_match.group(1) if channel_match else "YouTube")
+        duration = duration_match.group(1) if duration_match else None
+        seen.add(video_id)
+
+        results.append(
+            YouTubeVideo(
+                video_id=video_id,
+                title=title,
+                channel=channel,
+                duration=duration,
+                url=f"https://www.youtube.com/watch?v={video_id}",
+                thumbnail=f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+            )
+        )
+        if len(results) >= limit:
+            break
+
+    return results
+
+
+@app.get("/youtube/search", response_model=YouTubeSearchResponse)
+def youtube_search(q: str, limit: int = 6):
+    query = q.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query cannot be empty")
+
+    safe_limit = max(1, min(limit, 10))
+    search_url = f"https://www.youtube.com/results?search_query={quote_plus(query)}"
+
+    request = Request(
+        search_url,
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    )
+
+    try:
+        with urlopen(request, timeout=12) as response:
+            raw_html = response.read().decode("utf-8", errors="ignore")
+    except Exception as err:
+        raise HTTPException(status_code=502, detail=f"YouTube fetch failed: {err}") from err
+
+    results = _extract_youtube_results(raw_html, safe_limit)
+    return YouTubeSearchResponse(query=query, results=results)
 
 
 @app.post("/analyze")
