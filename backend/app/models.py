@@ -31,6 +31,7 @@ class AnalyzeRequest(BaseModel):
     student_id: str
     daily_minutes: int = Field(default=45, ge=15, le=240)
     events: list[LearningEvent]
+    module_contexts: list["ModuleContext"] = Field(default_factory=list)
 
 
 class ConceptState(BaseModel):
@@ -115,3 +116,16 @@ class YouTubeVideo(BaseModel):
 class YouTubeSearchResponse(BaseModel):
     query: str
     results: list[YouTubeVideo]
+
+
+class AssignmentItem(BaseModel):
+    title: str = Field(min_length=1, max_length=128)
+    due_date: datetime
+    marks_obtained: float = Field(ge=0)
+    marks_total: float = Field(gt=0)
+
+
+class ModuleContext(BaseModel):
+    concept_id: str
+    topics: list[str] = Field(default_factory=list)
+    assignments: list[AssignmentItem] = Field(default_factory=list)

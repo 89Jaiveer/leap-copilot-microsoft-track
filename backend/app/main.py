@@ -4,10 +4,10 @@ import csv
 import json
 import re
 from datetime import datetime
-from html import unescape
 from pathlib import Path
 from urllib.parse import quote_plus
 from urllib.request import Request, urlopen
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -60,28 +60,97 @@ def fetch_user(school_id: str):
     return UserProfile(**user)
 
 
+def _extract_yt_initial_data(html: str) -> dict[str, Any]:
+    markers = ["var ytInitialData = ", "ytInitialData = "]
+    for marker in markers:
+        idx = html.find(marker)
+        if idx == -1:
+            continue
+        start = html.find("{", idx)
+        if start == -1:
+            continue
+
+        depth = 0
+        in_string = False
+        escaped = False
+        end = -1
+
+        for pos in range(start, len(html)):
+            ch = html[pos]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                continue
+
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = pos + 1
+                    break
+
+        if end == -1:
+            continue
+
+        try:
+            return json.loads(html[start:end])
+        except json.JSONDecodeError:
+            continue
+
+    return {}
+
+
+def _walk_nodes(node: Any):
+    if isinstance(node, dict):
+        yield node
+        for value in node.values():
+            yield from _walk_nodes(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_nodes(item)
+
+
 def _extract_youtube_results(html: str, limit: int) -> list[YouTubeVideo]:
-    blocks = re.findall(r'"videoRenderer":\\{(.*?)\\}\\}\\],\"trackingParams\"', html)
+    data = _extract_yt_initial_data(html)
+    if not data:
+        return []
+
     results: list[YouTubeVideo] = []
     seen: set[str] = set()
 
-    for block in blocks:
-        video_id_match = re.search(r'"videoId":"([^"]+)"', block)
-        if not video_id_match:
+    for node in _walk_nodes(data):
+        renderer = node.get("videoRenderer") if isinstance(node, dict) else None
+        if not renderer:
             continue
-        video_id = video_id_match.group(1)
+        video_id = renderer.get("videoId")
+        if not video_id:
+            continue
         if video_id in seen:
             continue
 
-        title_match = re.search(r'"title":\\{\"runs\":\\[\\{\"text\":\"([^"]+)"', block)
-        if not title_match:
-            title_match = re.search(r'"title":\\{\"simpleText\":\"([^"]+)"', block)
-        channel_match = re.search(r'"ownerText":\\{\"runs\":\\[\\{\"text\":\"([^"]+)"', block)
-        duration_match = re.search(r'"lengthText":\\{\"simpleText\":\"([^"]+)"', block)
+        title = "Untitled video"
+        title_obj = renderer.get("title", {})
+        runs = title_obj.get("runs", [])
+        if runs and isinstance(runs, list):
+            title = "".join(str(run.get("text", "")) for run in runs).strip() or title
+        elif title_obj.get("simpleText"):
+            title = str(title_obj.get("simpleText"))
 
-        title = unescape(title_match.group(1) if title_match else "Untitled video")
-        channel = unescape(channel_match.group(1) if channel_match else "YouTube")
-        duration = duration_match.group(1) if duration_match else None
+        channel = "YouTube"
+        owner_obj = renderer.get("ownerText", {})
+        owner_runs = owner_obj.get("runs", [])
+        if owner_runs and isinstance(owner_runs, list):
+            channel = "".join(str(run.get("text", "")) for run in owner_runs).strip() or channel
+
+        length_obj = renderer.get("lengthText", {})
+        duration = length_obj.get("simpleText")
         seen.add(video_id)
 
         results.append(
@@ -101,7 +170,7 @@ def _extract_youtube_results(html: str, limit: int) -> list[YouTubeVideo]:
 
 
 @app.get("/youtube/search", response_model=YouTubeSearchResponse)
-def youtube_search(q: str, limit: int = 6):
+def youtube_search(q: str, limit: int = 10):
     query = q.strip()
     if not query:
         raise HTTPException(status_code=400, detail="query cannot be empty")
@@ -131,6 +200,20 @@ def youtube_search(q: str, limit: int = 6):
 def analyze(payload: AnalyzeRequest):
     if not payload.events:
         raise HTTPException(status_code=400, detail="events cannot be empty")
+
+    if payload.module_contexts:
+        ctx_by_concept = {ctx.concept_id: ctx for ctx in payload.module_contexts}
+        missing: list[str] = []
+        for concept_id in {event.concept_id for event in payload.events}:
+            ctx = ctx_by_concept.get(concept_id)
+            if not ctx or not ctx.topics or not ctx.assignments:
+                missing.append(concept_id)
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"module setup incomplete for concepts: {', '.join(sorted(missing))}",
+            )
+
     response = build_seven_day_plan(payload)
     recommendation_id = insert_recommendation(payload.student_id, response.model_dump())
     return response.model_copy(update={"recommendation_id": recommendation_id})

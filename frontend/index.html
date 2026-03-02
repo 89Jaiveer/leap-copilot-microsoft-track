@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LEAP Copilot - Student App</title>
+    <title>LEAP Copilot - Student Planner</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Manrope:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
@@ -17,137 +17,260 @@
     <div class="bg-glow glow-a"></div>
     <div class="bg-glow glow-b"></div>
 
-    <main class="container">
-      <header class="hero card">
-        <div>
+    <section id="authScreen" class="auth-screen">
+      <div class="auth-shell">
+        <div class="card auth-info">
           <p class="eyebrow">LEAP COPILOT</p>
-          <h1>Study Planner + AI Insights</h1>
-          <p>Built for students: enter your marks and topics, get weekly plan, deadlines strategy, and clear guidance.</p>
+          <h1>Study Planner</h1>
+          <p class="muted">Track modules, scores, deadlines, and weekly plans.</p>
+          <div class="list">
+            <div class="item">
+              <strong>1. Add modules</strong>
+            </div>
+            <div class="item">
+              <strong>2. Log scores</strong>
+            </div>
+            <div class="item">
+              <strong>3. Run analysis</strong>
+            </div>
+          </div>
         </div>
+
+        <div class="card auth-card">
+          <p class="eyebrow">ACCOUNT ACCESS</p>
+          <h2>Login</h2>
+          <div class="form-grid">
+            <label>Username<input id="authUsername" placeholder="e.g. jaiveer89" autocomplete="username" /></label>
+            <label>Password<input id="authPassword" type="password" placeholder="Enter password" autocomplete="current-password" /></label>
+          </div>
+          <div class="row">
+            <button id="loginBtn" class="btn">Login</button>
+            <button id="signupBtn" class="btn ghost">Create Account</button>
+          </div>
+          <p id="authStatus" class="muted">Not logged in.</p>
+        </div>
+      </div>
+    </section>
+
+    <div id="appLayout" class="app-layout hidden">
+      <aside class="sidebar card">
+        <div class="brand">
+          <p class="eyebrow">LEAP COPILOT</p>
+          <h1>Study OS</h1>
+          <p class="muted">Plan. Analyze. Improve.</p>
+        </div>
+
+        <div class="item">
+          <div class="muted">Signed in as</div>
+          <strong id="sessionUser">-</strong>
+          <div class="row">
+            <button id="logoutBtn" class="btn ghost">Logout</button>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-btn active" data-screen="dashboard">Dashboard</button>
+          <button class="nav-btn" data-screen="academics">Academics Setup</button>
+          <button class="nav-btn" data-screen="logs">Study Logs</button>
+          <button class="nav-btn" data-screen="analysis">Analysis</button>
+          <button class="nav-btn" data-screen="resources">Resources</button>
+        </nav>
+
         <div class="api-box">
           <label for="apiBase">API Base</label>
           <input id="apiBase" value="http://127.0.0.1:8000" />
           <button id="healthBtn" class="btn ghost">Check Health</button>
         </div>
-      </header>
 
-      <section class="status card"><span>Status</span><strong id="statusText">Ready</strong></section>
-
-      <section class="grid two">
-        <article class="card">
-          <h2>1) Create Account</h2>
-          <div class="form-grid">
-            <label>School ID<input id="schoolId" placeholder="e.g. SCH-2026-091" /></label>
-            <label>Name<input id="studentName" placeholder="e.g. Alicia Tan" /></label>
-          </div>
-          <div class="row">
-            <button id="registerBtn" class="btn">Register / Sign In</button>
-            <span id="accountInfo" class="muted">Not signed in</span>
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>2) Add Modules + Test Dates</h2>
-          <div class="form-grid">
-            <label>Module / Topic<input id="moduleInput" placeholder="e.g. algebra_linear" /></label>
-            <label>Next Test Date<input id="moduleDeadline" type="date" /></label>
-          </div>
-          <div class="row">
-            <button id="addModuleBtn" class="btn">Add Module</button>
-          </div>
-          <div id="moduleList" class="chips"></div>
-        </article>
-      </section>
-
-      <section class="card">
-        <h2>3) Study Log Input (Per Module)</h2>
-        <p class="muted">Enter each attempt/quiz result. This gives personalized analysis per module.</p>
-        <div class="form-grid six">
-          <label>Concept
-            <select id="eventConcept"></select>
-          </label>
-          <label>Marks Scored<input id="eventMarksObtained" type="number" min="0" value="6" /></label>
-          <label>Total Marks<input id="eventMarksTotal" type="number" min="1" value="10" /></label>
-          <label>Response Time (sec)<input id="eventRt" type="number" min="1" value="20" /></label>
-          <label>Difficulty (0-1)<input id="eventDifficulty" type="number" min="0" max="1" step="0.01" value="0.6" /></label>
-          <label>Attempt No.<input id="eventAttempt" type="number" min="1" value="1" /></label>
+        <div class="status-box">
+          <span class="muted">Status</span>
+          <strong id="statusText">Ready</strong>
         </div>
-        <details class="help-box">
-          <summary>What do these fields mean?</summary>
-          <ul>
-            <li><strong>Response Time:</strong> how long you took. Helps detect time-pressure mistakes.</li>
-            <li><strong>Difficulty:</strong> easy=0.2, medium=0.5, hard=0.8. Helps compare marks fairly.</li>
-            <li><strong>Attempt No.:</strong> 1 for first try, 2+ for retry. Helps detect improvement.</li>
-          </ul>
-        </details>
-        <div class="row">
-          <button id="addEventBtn" class="btn">Add Log Entry</button>
-          <button id="clearEventsBtn" class="btn ghost">Clear Logs</button>
-        </div>
-        <div id="eventTableWrap" class="table-wrap"></div>
-      </section>
+      </aside>
 
-      <section class="card">
-        <h2>4) Analyze My Data</h2>
-        <div class="row">
-          <label>Daily Study Minutes<input id="dailyMinutes" type="number" min="15" value="45" /></label>
-          <button id="analyzeBtn" class="btn">Run Analysis</button>
-          <button id="metricsBtn" class="btn ghost">Refresh Metrics</button>
-        </div>
-      </section>
-
-      <section class="grid two">
-        <article class="card">
-          <h2>Concept States</h2>
-          <p class="muted">How strong/weak each topic is right now.</p>
-          <div id="conceptStates" class="list"></div>
-        </article>
-        <article class="card">
-          <h2>Diagnosis</h2>
-          <p class="muted">Why you are losing marks (concept gap, time pressure, etc).</p>
-          <div id="diagnosis" class="list"></div>
-        </article>
-      </section>
-
-      <section class="card">
-        <h2>7-Day Plan + Feedback</h2>
-        <p class="muted">Actionable tasks for this week. Send feedback to improve suggestions.</p>
-        <div id="plan" class="plan-grid"></div>
-      </section>
-
-      <section class="grid two">
-        <article class="card">
-          <h2>Performance Graphs</h2>
-          <div class="chart-wrap">
-            <h3>Score Trend</h3>
-            <canvas id="trendChart" width="560" height="220"></canvas>
+      <main class="main-area">
+        <section id="screen-dashboard" class="screen active">
+          <div class="card hero-card">
+            <div class="hero-actions">
+              <div>
+                <h2>Learning Command Center</h2>
+              </div>
+              <div class="row">
+                <button class="btn quick-nav" data-screen-target="academics">Setup</button>
+                <button class="btn ghost quick-nav" data-screen-target="logs">Logs</button>
+                <button class="btn ghost quick-nav" data-screen-target="analysis">Analyze</button>
+              </div>
+            </div>
+            <div class="setup-rail">
+              <div class="muted">Setup Completion</div>
+              <div class="progress-track">
+                <div id="setupProgress" class="progress-fill"></div>
+              </div>
+              <div id="setupChecklist" class="list compact-list"></div>
+            </div>
           </div>
-          <div class="chart-wrap">
-            <h3>Module Average Scores</h3>
-            <canvas id="moduleChart" width="560" height="220"></canvas>
+
+          <div class="card">
+            <h2>Dashboard</h2>
+            <div id="dashboardKpis" class="kpi-grid"></div>
           </div>
-        </article>
 
-        <article class="card">
-          <h2>Insights + Deadline Planner</h2>
-          <div id="insights" class="list"></div>
-
-          <h2 style="margin-top: 14px">Weak Topic YouTube Helper</h2>
-          <p class="muted">Enter a weak topic and get useful YouTube resources quickly.</p>
-          <div class="form-grid">
-            <label>Weak Topic<input id="weakTopicInput" placeholder="e.g. Trigonometry identities" /></label>
-            <button id="youtubeBtn" class="btn">Find YouTube Resources</button>
+          <div class="grid two">
+            <div class="card">
+              <h3>Score Trend</h3>
+              <canvas id="trendChart" width="700" height="240"></canvas>
+            </div>
+            <div class="card">
+              <h3>Module Averages</h3>
+              <canvas id="moduleChart" width="700" height="240"></canvas>
+            </div>
           </div>
-          <div id="youtubeLinks" class="list"></div>
-        </article>
-      </section>
 
-      <section class="card">
-        <h2>System Metrics</h2>
-        <p class="muted">How trustworthy and usable the AI output is (not your marks).</p>
-        <div id="metrics" class="metrics-grid"></div>
-      </section>
-    </main>
+          <div class="card">
+            <h3>Upcoming Deadlines</h3>
+            <div id="deadlineBoard" class="list"></div>
+          </div>
+
+          <div class="card">
+            <h3>3-Day Assignment Reminders</h3>
+            <div id="assignmentReminders" class="list"></div>
+          </div>
+        </section>
+
+        <section id="screen-academics" class="screen">
+          <div class="card compact-card">
+            <h2>Account</h2>
+            <p id="accountInfo" class="muted">Not signed in</p>
+          </div>
+
+          <div class="card">
+            <h2>Modules By Year + Semester</h2>
+            <div class="form-grid four-col">
+              <label>Year
+                <select id="moduleYear">
+                  <option value="Year 1">Year 1</option>
+                  <option value="Year 2">Year 2</option>
+                  <option value="Year 3">Year 3</option>
+                  <option value="Year 4">Year 4</option>
+                </select>
+              </label>
+              <label>Semester
+                <select id="moduleSemester">
+                  <option value="Semester 1">Semester 1</option>
+                  <option value="Semester 2">Semester 2</option>
+                  <option value="Semester 3">Semester 3</option>
+                  <option value="Semester 4">Semester 4</option>
+                </select>
+              </label>
+              <label>Module / Topic<input id="moduleInput" placeholder="e.g. intro_to_dsai" /></label>
+              <label>Next Test Date<input id="moduleDeadline" type="date" /></label>
+            </div>
+            <div class="row">
+              <button id="addModuleBtn" class="btn">Add Module</button>
+            </div>
+            <div id="moduleList" class="list"></div>
+          </div>
+
+          <div class="card">
+            <h2>Module Topics + Graded Assignments</h2>
+            <div class="form-grid three-col">
+              <label>Module
+                <select id="detailModuleSelect"></select>
+              </label>
+              <label>Topic to cover<input id="topicInput" placeholder="e.g. bayes theorem" /></label>
+              <label>&nbsp;<button id="addTopicBtn" class="btn">Add Topic</button></label>
+            </div>
+            <div class="form-grid five-col">
+              <label>Assignment Title<input id="assignmentTitle" placeholder="e.g. Quiz 1" /></label>
+              <label>Marks Scored<input id="assignmentMarksObtained" type="number" min="0" value="0" /></label>
+              <label>Total Marks<input id="assignmentMarksTotal" type="number" min="1" value="10" /></label>
+              <label>Due Date<input id="assignmentDueDate" type="date" /></label>
+              <label>&nbsp;<button id="addAssignmentBtn" class="btn">Add Assignment</button></label>
+            </div>
+            <div id="moduleDetailsList" class="list"></div>
+          </div>
+        </section>
+
+        <section id="screen-logs" class="screen">
+          <div class="card">
+            <h2>Study Logs</h2>
+
+            <div class="form-grid six-col">
+              <label>Module
+                <select id="eventConcept"></select>
+              </label>
+              <label>Marks Scored<input id="eventMarksObtained" type="number" min="0" value="6" /></label>
+              <label>Total Marks<input id="eventMarksTotal" type="number" min="1" value="10" /></label>
+              <label>Response Time (sec)<input id="eventRt" type="number" min="1" value="20" /></label>
+              <label>Difficulty (0-1)<input id="eventDifficulty" type="number" min="0" max="1" step="0.01" value="0.6" /></label>
+              <label>Attempt No.<input id="eventAttempt" type="number" min="1" value="1" /></label>
+            </div>
+
+            <details class="help-box">
+              <summary>Field Help</summary>
+              <ul>
+                <li><strong>Difficulty:</strong> easy 0.2, medium 0.5, hard 0.8.</li>
+                <li><strong>Attempt:</strong> first try = 1, retry = 2+.</li>
+              </ul>
+            </details>
+
+            <div class="row">
+              <button id="addEventBtn" class="btn">Add Log Entry</button>
+              <button id="clearEventsBtn" class="btn ghost">Clear Logs</button>
+            </div>
+            <div id="eventTableWrap" class="table-wrap"></div>
+          </div>
+        </section>
+
+        <section id="screen-analysis" class="screen">
+          <div class="card">
+            <h2>Analysis</h2>
+            <div class="row">
+              <label>Daily Study Minutes<input id="dailyMinutes" type="number" min="15" value="45" /></label>
+              <button id="analyzeBtn" class="btn">Run Analysis</button>
+              <button id="metricsBtn" class="btn ghost">Refresh Metrics</button>
+            </div>
+          </div>
+
+          <div class="grid two">
+            <div class="card">
+              <h3>Concept States</h3>
+              <div id="conceptStates" class="list"></div>
+            </div>
+            <div class="card">
+              <h3>Diagnosis</h3>
+              <div id="diagnosis" class="list"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>7-Day Plan + Feedback</h3>
+            <div id="plan" class="plan-grid"></div>
+          </div>
+
+          <div class="card">
+            <h3>Deadline-based Time Suggestions</h3>
+            <div id="insights" class="list"></div>
+          </div>
+
+          <div class="card">
+            <h3>System Metrics</h3>
+            <div id="metrics" class="metrics-grid"></div>
+          </div>
+        </section>
+
+        <section id="screen-resources" class="screen">
+          <div class="card">
+            <h2>YouTube Finder</h2>
+            <div class="row">
+              <label>Weak Topic<input id="weakTopicInput" placeholder="e.g. trigonometry identities" /></label>
+              <button id="youtubeBtn" class="btn">Find YouTube Videos</button>
+            </div>
+            <div id="youtubeLinks" class="list"></div>
+          </div>
+        </section>
+      </main>
+    </div>
 
     <script src="./app.js"></script>
   </body>

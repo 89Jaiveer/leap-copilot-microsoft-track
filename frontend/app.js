@@ -1,20 +1,43 @@
 const state = {
-  apiBase: "http://127.0.0.1:8000",
+  apiBase: localStorage.getItem("leap_api_base") || "http://127.0.0.1:8000",
   user: null,
-  modules: [], // {name, deadline}
+  modules: [],
+  moduleDetails: {},
   events: [],
   latestRecommendationId: null,
+  metrics: null,
 };
 
+let navigateToScreen = () => {};
+
+const ACCOUNTS_KEY = "leap_accounts_v1";
+const SESSION_KEY = "leap_session_user";
+
 const el = {
+  authScreen: document.getElementById("authScreen"),
+  appLayout: document.getElementById("appLayout"),
+  authUsername: document.getElementById("authUsername"),
+  authPassword: document.getElementById("authPassword"),
+  authStatus: document.getElementById("authStatus"),
+  loginBtn: document.getElementById("loginBtn"),
+  signupBtn: document.getElementById("signupBtn"),
+  logoutBtn: document.getElementById("logoutBtn"),
+  sessionUser: document.getElementById("sessionUser"),
   apiBase: document.getElementById("apiBase"),
   statusText: document.getElementById("statusText"),
-  schoolId: document.getElementById("schoolId"),
-  studentName: document.getElementById("studentName"),
   accountInfo: document.getElementById("accountInfo"),
+  moduleYear: document.getElementById("moduleYear"),
+  moduleSemester: document.getElementById("moduleSemester"),
   moduleInput: document.getElementById("moduleInput"),
   moduleDeadline: document.getElementById("moduleDeadline"),
   moduleList: document.getElementById("moduleList"),
+  detailModuleSelect: document.getElementById("detailModuleSelect"),
+  topicInput: document.getElementById("topicInput"),
+  assignmentTitle: document.getElementById("assignmentTitle"),
+  assignmentMarksObtained: document.getElementById("assignmentMarksObtained"),
+  assignmentMarksTotal: document.getElementById("assignmentMarksTotal"),
+  assignmentDueDate: document.getElementById("assignmentDueDate"),
+  moduleDetailsList: document.getElementById("moduleDetailsList"),
   eventConcept: document.getElementById("eventConcept"),
   eventMarksObtained: document.getElementById("eventMarksObtained"),
   eventMarksTotal: document.getElementById("eventMarksTotal"),
@@ -32,12 +55,18 @@ const el = {
   youtubeLinks: document.getElementById("youtubeLinks"),
   trendChart: document.getElementById("trendChart"),
   moduleChart: document.getElementById("moduleChart"),
+  dashboardKpis: document.getElementById("dashboardKpis"),
+  deadlineBoard: document.getElementById("deadlineBoard"),
+  assignmentReminders: document.getElementById("assignmentReminders"),
+  setupProgress: document.getElementById("setupProgress"),
+  setupChecklist: document.getElementById("setupChecklist"),
 };
 
 const btn = {
   health: document.getElementById("healthBtn"),
-  register: document.getElementById("registerBtn"),
   addModule: document.getElementById("addModuleBtn"),
+  addTopic: document.getElementById("addTopicBtn"),
+  addAssignment: document.getElementById("addAssignmentBtn"),
   addEvent: document.getElementById("addEventBtn"),
   clearEvents: document.getElementById("clearEventsBtn"),
   analyze: document.getElementById("analyzeBtn"),
@@ -47,6 +76,10 @@ const btn = {
 
 function setStatus(text) {
   el.statusText.textContent = text;
+}
+
+function setAuthStatus(text) {
+  el.authStatus.textContent = text;
 }
 
 function api(path) {
@@ -61,79 +94,304 @@ async function jsonFetch(path, options = {}) {
       ...(options.headers || {}),
     },
   });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
   return await res.json();
 }
 
-function toSlug(value) {
-  return value.trim().toLowerCase().replace(/\s+/g, "_");
+function slug(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9\s_-]/g, "").replace(/\s+/g, "_");
 }
 
-function saveLocal() {
-  localStorage.setItem("leap_user", JSON.stringify(state.user));
-  localStorage.setItem("leap_modules", JSON.stringify(state.modules));
-  localStorage.setItem("leap_events", JSON.stringify(state.events));
-}
-
-function loadLocal() {
-  try {
-    const user = JSON.parse(localStorage.getItem("leap_user") || "null");
-    const modules = JSON.parse(localStorage.getItem("leap_modules") || "[]");
-    const events = JSON.parse(localStorage.getItem("leap_events") || "[]");
-    if (user) state.user = user;
-    state.modules = Array.isArray(modules) ? modules : [];
-    state.events = Array.isArray(events) ? events : [];
-  } catch {
-    // ignore corrupted local storage
-  }
-}
-
-function findModule(name) {
-  return state.modules.find((m) => m.name === name);
+function moduleId(year, semester, name) {
+  return `${slug(year)}::${slug(semester)}::${slug(name)}`;
 }
 
 function scorePct(event) {
   return Math.round((event.marks_obtained / event.marks_total) * 100);
 }
 
-function renderAccount() {
+function daysTo(dateText) {
+  if (!dateText) return null;
+  const now = new Date();
+  const target = new Date(dateText);
+  if (Number.isNaN(target.getTime())) return null;
+  return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+}
+
+function userDataKey(username) {
+  return `leap_user_data_${username}`;
+}
+
+function loadAccounts() {
+  try {
+    return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveAccounts(accounts) {
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+function defaultUserData() {
+  return {
+    modules: [],
+    moduleDetails: {},
+    events: [],
+    latestRecommendationId: null,
+  };
+}
+
+function saveCurrentUserData() {
+  if (!state.user) return;
+  const payload = {
+    modules: state.modules,
+    moduleDetails: state.moduleDetails,
+    events: state.events,
+    latestRecommendationId: state.latestRecommendationId,
+  };
+  localStorage.setItem(userDataKey(state.user.username), JSON.stringify(payload));
+}
+
+function loadUserData(username) {
+  try {
+    const raw = localStorage.getItem(userDataKey(username));
+    if (!raw) return defaultUserData();
+    const parsed = JSON.parse(raw);
+    return {
+      modules: Array.isArray(parsed.modules) ? parsed.modules : [],
+      moduleDetails: parsed.moduleDetails && typeof parsed.moduleDetails === "object" ? parsed.moduleDetails : {},
+      events: Array.isArray(parsed.events) ? parsed.events : [],
+      latestRecommendationId: parsed.latestRecommendationId || null,
+    };
+  } catch {
+    return defaultUserData();
+  }
+}
+
+function clearRuntimeData() {
+  state.modules = [];
+  state.moduleDetails = {};
+  state.events = [];
+  state.latestRecommendationId = null;
+  state.metrics = null;
+}
+
+function showAuthView() {
+  el.authScreen.classList.remove("hidden");
+  el.appLayout.classList.add("hidden");
+}
+
+function showAppView() {
+  el.authScreen.classList.add("hidden");
+  el.appLayout.classList.remove("hidden");
+}
+
+function moduleById(id) {
+  return state.modules.find((m) => m.id === id) || null;
+}
+
+function moduleLabel(id) {
+  const m = moduleById(id);
+  return m ? `${m.name} (${m.year}, ${m.semester})` : id;
+}
+
+function shortModuleLabel(module) {
+  const y = module.year.replace("Year ", "Y");
+  const s = module.semester.replace("Semester ", "S");
+  return `${module.name} | ${y}${s}`;
+}
+
+function groupedModules() {
+  return state.modules.reduce((acc, module) => {
+    const key = `${module.year} | ${module.semester}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(module);
+    return acc;
+  }, {});
+}
+
+function ensureModuleDetails(id) {
+  if (!state.moduleDetails[id]) {
+    state.moduleDetails[id] = { topics: [], assignments: [] };
+  }
+  return state.moduleDetails[id];
+}
+
+function renderList(container, items, formatter) {
+  container.innerHTML = "";
+  if (!items.length) {
+    container.innerHTML = '<p class="muted">No data yet.</p>';
+    return;
+  }
+  items.forEach((item) => {
+    const block = document.createElement("div");
+    block.className = "item";
+    block.innerHTML = formatter(item);
+    container.appendChild(block);
+  });
+}
+
+function initNavigation() {
+  const buttons = Array.from(document.querySelectorAll(".nav-btn"));
+  const screens = Array.from(document.querySelectorAll(".screen"));
+
+  function show(name) {
+    buttons.forEach((button) => button.classList.toggle("active", button.dataset.screen === name));
+    screens.forEach((screen) => screen.classList.toggle("active", screen.id === `screen-${name}`));
+  }
+
+  navigateToScreen = show;
+  buttons.forEach((button) => button.addEventListener("click", () => show(button.dataset.screen)));
+  show("dashboard");
+
+  document.querySelectorAll(".quick-nav").forEach((button) => {
+    button.addEventListener("click", () => {
+      show(button.dataset.screenTarget);
+    });
+  });
+}
+
+function renderSession() {
   if (!state.user) {
+    el.sessionUser.textContent = "-";
     el.accountInfo.textContent = "Not signed in";
     return;
   }
-  el.accountInfo.textContent = `${state.user.name} (${state.user.school_id})`;
-  el.schoolId.value = state.user.school_id;
-  el.studentName.value = state.user.name;
+  el.sessionUser.textContent = state.user.username;
+  el.accountInfo.textContent = `Logged in as ${state.user.username}`;
+}
+
+function renderModuleSelectors() {
+  const all = [el.eventConcept, el.detailModuleSelect];
+  all.forEach((selectEl) => {
+    selectEl.innerHTML = "";
+    if (!state.modules.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "Add modules first";
+      selectEl.appendChild(option);
+      return;
+    }
+
+    state.modules.forEach((module) => {
+      const option = document.createElement("option");
+      option.value = module.id;
+      option.textContent = shortModuleLabel(module);
+      option.title = moduleLabel(module.id);
+      selectEl.appendChild(option);
+    });
+  });
 }
 
 function renderModules() {
+  const groups = groupedModules();
   el.moduleList.innerHTML = "";
+
   if (!state.modules.length) {
     el.moduleList.innerHTML = '<span class="muted">No modules added yet.</span>';
   } else {
-    state.modules.forEach((m, i) => {
-      const chip = document.createElement("span");
-      chip.className = "chip";
-      chip.innerHTML = `${m.name}${m.deadline ? ` (test: ${m.deadline})` : ""} <button class="btn ghost" data-rem-module="${i}">x</button>`;
-      el.moduleList.appendChild(chip);
-    });
+    Object.keys(groups)
+      .sort()
+      .forEach((groupKey) => {
+        const container = document.createElement("div");
+        container.className = "item";
+        container.innerHTML = `<strong>${groupKey}</strong>`;
+
+        const row = document.createElement("div");
+        row.className = "row";
+
+        groups[groupKey].forEach((module) => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          const deadlineText = module.deadline ? ` | Test: ${module.deadline}` : "";
+          chip.innerHTML = `${module.name}${deadlineText} <button class="btn ghost" data-remove-module="${module.id}">x</button>`;
+          row.appendChild(chip);
+        });
+
+        container.appendChild(row);
+        el.moduleList.appendChild(container);
+      });
   }
 
-  el.eventConcept.innerHTML = "";
-  state.modules.forEach((m) => {
-    const option = document.createElement("option");
-    option.value = m.name;
-    option.textContent = m.name;
-    el.eventConcept.appendChild(option);
+  el.moduleList.querySelectorAll("button[data-remove-module]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.removeModule;
+      state.modules = state.modules.filter((module) => module.id !== id);
+      delete state.moduleDetails[id];
+      state.events = state.events.filter((event) => event.concept_id !== id);
+      saveCurrentUserData();
+      renderModules();
+      renderModuleDetails();
+      renderEvents();
+      renderDashboard();
+    });
   });
 
-  el.moduleList.querySelectorAll("button[data-rem-module]").forEach((button) => {
+  renderModuleSelectors();
+}
+
+function renderModuleDetails() {
+  el.moduleDetailsList.innerHTML = "";
+  if (!state.modules.length) {
+    el.moduleDetailsList.innerHTML = '<p class="muted">Add modules first.</p>';
+    return;
+  }
+
+  state.modules.forEach((module) => {
+    const detail = ensureModuleDetails(module.id);
+    const topicHtml = detail.topics.length
+      ? detail.topics
+          .map(
+            (topic, i) =>
+              `<span class="chip">${topic} <button class="btn ghost" data-remove-topic-module="${module.id}" data-remove-topic-index="${i}">x</button></span>`
+          )
+          .join(" ")
+      : '<span class="muted">No topics yet.</span>';
+
+    const assignmentsHtml = detail.assignments.length
+      ? `<table><thead><tr><th>Title</th><th>Marks</th><th>Due Date</th><th>Action</th></tr></thead><tbody>${detail.assignments
+          .map(
+            (a, i) =>
+              `<tr><td>${a.title}</td><td>${a.marks_obtained}/${a.marks_total}</td><td>${a.due_date}</td><td><button class="btn ghost" data-remove-assignment-module="${module.id}" data-remove-assignment-index="${i}">Remove</button></td></tr>`
+          )
+          .join("")}</tbody></table>`
+      : '<span class="muted">No assignments yet.</span>';
+
+    const card = document.createElement("div");
+    card.className = "item";
+    card.innerHTML = `
+      <strong>${module.name} (${module.year}, ${module.semester})</strong>
+      <div class="muted">Topics:</div>
+      <div class="row">${topicHtml}</div>
+      <div class="muted" style="margin-top:8px;">Assignments:</div>
+      <div class="table-wrap">${assignmentsHtml}</div>
+    `;
+    el.moduleDetailsList.appendChild(card);
+  });
+
+  el.moduleDetailsList.querySelectorAll("button[data-remove-topic-module]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.modules.splice(Number(button.dataset.remModule), 1);
-      saveLocal();
-      renderModules();
+      const moduleIdValue = button.dataset.removeTopicModule;
+      const index = Number(button.dataset.removeTopicIndex);
+      const detail = ensureModuleDetails(moduleIdValue);
+      detail.topics.splice(index, 1);
+      saveCurrentUserData();
+      renderModuleDetails();
+      renderDashboard();
+    });
+  });
+
+  el.moduleDetailsList.querySelectorAll("button[data-remove-assignment-module]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const moduleIdValue = button.dataset.removeAssignmentModule;
+      const index = Number(button.dataset.removeAssignmentIndex);
+      const detail = ensureModuleDetails(moduleIdValue);
+      detail.assignments.splice(index, 1);
+      saveCurrentUserData();
+      renderModuleDetails();
+      renderDashboard();
     });
   });
 }
@@ -147,186 +405,112 @@ function renderEvents() {
 
   const rows = state.events
     .map(
-      (e, i) => `
+      (event, index) => `
       <tr>
-        <td>${i + 1}</td>
-        <td>${e.concept_id}</td>
-        <td>${e.marks_obtained}/${e.marks_total} (${scorePct(e)}%)</td>
-        <td>${e.response_time_sec}</td>
-        <td>${e.difficulty}</td>
-        <td>${e.attempt_no}</td>
-        <td><button class="btn ghost" data-remove="${i}">Remove</button></td>
+        <td>${index + 1}</td>
+        <td>${moduleLabel(event.concept_id)}</td>
+        <td>${event.marks_obtained}/${event.marks_total} (${scorePct(event)}%)</td>
+        <td>${event.response_time_sec}</td>
+        <td>${event.difficulty}</td>
+        <td>${event.attempt_no}</td>
+        <td><button class="btn ghost" data-remove-log="${index}">Remove</button></td>
       </tr>`
     )
     .join("");
 
   el.eventTableWrap.innerHTML = `
     <table>
-      <thead>
-        <tr><th>#</th><th>Module</th><th>Marks</th><th>RT(s)</th><th>Difficulty</th><th>Attempt</th><th>Action</th></tr>
-      </thead>
+      <thead><tr><th>#</th><th>Module</th><th>Marks</th><th>RT(s)</th><th>Difficulty</th><th>Attempt</th><th>Action</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 
-  el.eventTableWrap.querySelectorAll("button[data-remove]").forEach((button) => {
+  el.eventTableWrap.querySelectorAll("button[data-remove-log]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.events.splice(Number(button.dataset.remove), 1);
-      saveLocal();
+      state.events.splice(Number(button.dataset.removeLog), 1);
+      saveCurrentUserData();
       renderEvents();
+      renderDashboard();
     });
   });
 
   drawCharts();
 }
 
-function renderList(container, items, formatter) {
-  container.innerHTML = "";
-  if (!items.length) {
-    container.innerHTML = '<p class="muted">No data yet.</p>';
-    return;
-  }
-  items.forEach((item) => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = formatter(item);
-    container.appendChild(div);
-  });
+function averageByModule(moduleIdValue) {
+  const fromLogs = state.events.filter((event) => event.concept_id === moduleIdValue).map((event) => scorePct(event));
+  const detail = ensureModuleDetails(moduleIdValue);
+  const fromAssignments = detail.assignments.map((a) => Math.round((a.marks_obtained / a.marks_total) * 100));
+  const allScores = [...fromLogs, ...fromAssignments];
+  if (!allScores.length) return null;
+  return Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length);
 }
 
-function feedbackButtons(recommendationId) {
-  return `
-    <div class="row">
-      <button class="btn" data-feedback="accept" data-rec="${recommendationId}">Accept</button>
-      <button class="btn ghost" data-feedback="edit" data-rec="${recommendationId}">Edit</button>
-      <button class="btn ghost" data-feedback="reject" data-rec="${recommendationId}">Reject</button>
-    </div>`;
-}
+function renderDashboard() {
+  const totalModules = state.modules.length;
+  const totalLogs = state.events.length;
+  const avgScores = state.modules.map((module) => averageByModule(module.id)).filter((v) => v !== null);
+  const avgScore = avgScores.length ? Math.round(avgScores.reduce((a, b) => a + b, 0) / avgScores.length) : 0;
 
-function renderAnalysis(data) {
-  state.latestRecommendationId = data.recommendation_id;
+  const weakCount = state.modules.filter((module) => {
+    const avg = averageByModule(module.id);
+    return avg !== null && avg < 60;
+  }).length;
 
-  renderList(el.conceptStates, data.concept_states || [], (c) => {
-    const badgeClass = c.trend === "improving" ? "badge-good" : c.trend === "regressing" ? "badge-bad" : "badge-warn";
-    return `<strong>${c.concept_id}</strong><div class="muted">Mastery ${Math.round(c.mastery_score * 100)}% | <span class="${badgeClass}">${c.trend}</span></div><div class="muted">${c.evidence.join(" | ")}</div>`;
+  el.dashboardKpis.innerHTML = `
+    <div class="kpi"><span class="muted">Modules Added</span><strong>${totalModules}</strong></div>
+    <div class="kpi"><span class="muted">Study Logs</span><strong>${totalLogs}</strong></div>
+    <div class="kpi"><span class="muted">Average Score</span><strong>${avgScore}%</strong></div>
+    <div class="kpi"><span class="muted">Weak Modules</span><strong>${weakCount}</strong></div>
+  `;
+
+  const modulesReady = state.modules.length > 0;
+  const topicsReady = state.modules.length > 0 && state.modules.every((m) => ensureModuleDetails(m.id).topics.length > 0);
+  const assignmentsReady =
+    state.modules.length > 0 && state.modules.every((m) => ensureModuleDetails(m.id).assignments.length > 0);
+  const logsReady = state.events.length > 0;
+
+  const checks = [
+    { label: "Add at least one module", ok: modulesReady },
+    { label: "Add at least one topic for each module", ok: topicsReady },
+    { label: "Add at least one assignment for each module", ok: assignmentsReady },
+    { label: "Add study logs", ok: logsReady },
+  ];
+  const doneCount = checks.filter((c) => c.ok).length;
+  const progress = Math.round((doneCount / checks.length) * 100);
+  el.setupProgress.style.width = `${progress}%`;
+  el.setupChecklist.innerHTML = checks
+    .map(
+      (c) =>
+        `<div class="item"><strong class="${c.ok ? "badge-good" : "badge-warn"}">${c.ok ? "Done" : "Pending"}</strong><div class="muted">${c.label}</div></div>`
+    )
+    .join("");
+
+  const deadlines = state.modules
+    .filter((module) => module.deadline)
+    .map((module) => ({ module, daysLeft: daysTo(module.deadline), avg: averageByModule(module.id) }))
+    .filter((x) => x.daysLeft !== null)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+
+  renderList(el.deadlineBoard, deadlines, (item) => {
+    const pressure = item.daysLeft <= 3 ? "badge-bad" : item.daysLeft <= 7 ? "badge-warn" : "badge-good";
+    const avgText = item.avg === null ? "No scores yet" : `${item.avg}% avg`;
+    return `<strong>${item.module.name} (${item.module.year}, ${item.module.semester})</strong><div class="muted">Test: ${item.module.deadline} | <span class="${pressure}">${item.daysLeft} day(s) left</span> | ${avgText}</div>`;
   });
 
-  renderList(el.diagnosis, data.diagnosis || [], (d) => {
-    return `<strong>${d.concept_id}</strong><div class="muted">Cause: ${d.cause} | Score: ${Math.round(d.score * 100)}%</div><div class="muted">${(d.evidence || []).slice(0, 3).join(" | ")}</div>`;
-  });
-
-  el.plan.innerHTML = "";
-  (data.seven_day_plan || []).forEach((task) => {
-    const card = document.createElement("div");
-    card.className = "plan-card";
-    card.innerHTML = `
-      <div class="plan-head"><strong>Day ${task.day} - ${task.concept_id}</strong><span class="tag">${task.duration_min} min</span></div>
-      <p>${task.activity}</p>
-      <p class="muted">${task.expected_outcome}</p>
-      <p class="muted">Evidence: ${(task.evidence || []).join(" | ")}</p>
-      ${feedbackButtons(data.recommendation_id)}
-    `;
-    el.plan.appendChild(card);
-  });
-
-  el.plan.querySelectorAll("button[data-feedback]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const action = button.dataset.feedback;
-      const recommendationId = Number(button.dataset.rec);
-      const note = prompt(`Add note for ${action}:`, `${action} by ${state.user?.name || "user"}`) || "";
-      try {
-        await jsonFetch("/feedback", {
-          method: "POST",
-          body: JSON.stringify({ recommendation_id: recommendationId, action, note }),
-        });
-        setStatus(`Feedback submitted: ${action}.`);
-        await refreshMetrics();
-      } catch (err) {
-        setStatus(`Feedback failed: ${err.message}`);
-      }
+  const reminders = [];
+  state.modules.forEach((module) => {
+    const detail = ensureModuleDetails(module.id);
+    detail.assignments.forEach((assignment) => {
+      const left = daysTo(assignment.due_date);
+      if (left !== null && left >= 0 && left <= 3) reminders.push({ module, assignment, left });
     });
   });
+  reminders.sort((a, b) => a.left - b.left);
 
-  renderInsights(data);
-}
-
-function daysTo(dateText) {
-  if (!dateText) return null;
-  const now = new Date();
-  const target = new Date(dateText);
-  if (Number.isNaN(target.getTime())) return null;
-  return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
-}
-
-function moduleAverage(moduleName) {
-  const records = state.events.filter((e) => e.concept_id === moduleName);
-  if (!records.length) return null;
-  return records.reduce((acc, e) => acc + scorePct(e), 0) / records.length;
-}
-
-function renderInsights(data) {
-  const insights = [];
-
-  if (data.diagnosis?.length) {
-    const top = data.diagnosis[0];
-    insights.push(`Top weakness: ${top.concept_id} (${top.cause.replaceAll("_", " ")}).`);
-  }
-
-  const modulePlans = state.modules
-    .map((m) => {
-      const avg = moduleAverage(m.name);
-      const d = daysTo(m.deadline);
-      if (avg == null || d == null || d <= 0) return null;
-      const gap = Math.max(0, 80 - avg);
-      const minutes = Math.max(20, Math.round((gap / 80) * 90 + (14 / Math.max(d, 1)) * 20));
-      return { module: m.name, avg: Math.round(avg), days: d, suggested: Math.min(minutes, 120) };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.days - b.days);
-
-  modulePlans.forEach((p) => {
-    insights.push(
-      `${p.module}: ${p.avg}% average, ${p.days} day(s) to test. Suggested daily focus: ${p.suggested} minutes.`
-    );
+  renderList(el.assignmentReminders, reminders, (r) => {
+    const tone = r.left <= 1 ? "badge-bad" : "badge-warn";
+    return `<strong>${r.assignment.title}</strong><div class="muted">${r.module.name} (${r.module.year}, ${r.module.semester}) | Due: ${r.assignment.due_date} | <span class="${tone}">${r.left} day(s) left</span></div>`;
   });
-
-  renderList(el.insights, insights, (line) => `<span>${line}</span>`);
-}
-
-async function renderYoutubeLinks(topic) {
-  if (!topic.trim()) {
-    el.youtubeLinks.innerHTML = '<p class="muted">Enter a weak topic first.</p>';
-    return;
-  }
-
-  const query = topic.trim();
-  setStatus(`Searching YouTube for: ${query}...`);
-  try {
-    const data = await jsonFetch(`/youtube/search?q=${encodeURIComponent(query)}&limit=6`);
-    if (!data.results?.length) {
-      el.youtubeLinks.innerHTML = '<p class="muted">No YouTube matches found for this topic.</p>';
-      setStatus("No YouTube results found.");
-      return;
-    }
-
-    el.youtubeLinks.innerHTML = data.results
-      .map(
-        (v) => `
-        <div class="item youtube-item">
-          <img src="${v.thumbnail}" alt="${v.title}" class="yt-thumb" />
-          <div>
-            <strong>${v.title}</strong>
-            <div class="muted">${v.channel}${v.duration ? ` • ${v.duration}` : ""}</div>
-            <a href="${v.url}" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
-          </div>
-        </div>
-      `
-      )
-      .join("");
-    setStatus(`Found ${data.results.length} YouTube videos for "${query}".`);
-  } catch (err) {
-    el.youtubeLinks.innerHTML = `<p class="muted">YouTube search failed: ${err.message}</p>`;
-    setStatus(`YouTube search failed: ${err.message}`);
-  }
 }
 
 function clearCanvas(canvas) {
@@ -343,19 +527,16 @@ function drawLineChart(canvas, values) {
   const pad = 24;
   const w = canvas.width - pad * 2;
   const h = canvas.height - pad * 2;
-  const max = 100;
-
-  values.forEach((v, i) => {
+  values.forEach((value, i) => {
     const x = pad + (i / Math.max(values.length - 1, 1)) * w;
-    const y = pad + ((max - v) / max) * h;
+    const y = pad + ((100 - value) / 100) * h;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
   ctx.stroke();
-
   ctx.fillStyle = "#9aa8d6";
   ctx.font = "12px Inter";
-  ctx.fillText("Score %", 8, 14);
+  ctx.fillText("Score trend", 12, 16);
 }
 
 function drawBarChart(canvas, labels, values) {
@@ -363,10 +544,10 @@ function drawBarChart(canvas, labels, values) {
   const pad = 24;
   const w = canvas.width - pad * 2;
   const h = canvas.height - pad * 2;
-  const barW = w / Math.max(values.length, 1) - 10;
-
+  const gap = 10;
+  const barW = Math.max(20, w / Math.max(values.length, 1) - gap);
   values.forEach((v, i) => {
-    const x = pad + i * (barW + 10);
+    const x = pad + i * (barW + gap);
     const barH = (v / 100) * h;
     const y = pad + (h - barH);
     ctx.fillStyle = "rgba(209,108,255,0.85)";
@@ -375,31 +556,114 @@ function drawBarChart(canvas, labels, values) {
     ctx.font = "11px Inter";
     ctx.fillText(labels[i].slice(0, 10), x, pad + h + 14);
   });
+  ctx.fillStyle = "#9aa8d6";
+  ctx.fillText("Module averages", 12, 16);
 }
 
 function drawCharts() {
-  const scores = state.events.map((e) => scorePct(e));
-  if (!scores.length) {
-    clearCanvas(el.trendChart).fillText("Add study logs to see trend", 20, 30);
-    clearCanvas(el.moduleChart).fillText("Add study logs to see module graph", 20, 30);
+  const scoreTimeline = state.events.map((event) => scorePct(event));
+  if (!scoreTimeline.length) {
+    const trend = clearCanvas(el.trendChart);
+    trend.fillStyle = "#9aa8d6";
+    trend.fillText("Add study logs to render trend", 20, 30);
+    const module = clearCanvas(el.moduleChart);
+    module.fillStyle = "#9aa8d6";
+    module.fillText("Add modules + assignments/logs to render bars", 20, 30);
     return;
   }
+  drawLineChart(el.trendChart, scoreTimeline);
 
-  drawLineChart(el.trendChart, scores);
-
-  const byModule = {};
-  state.events.forEach((e) => {
-    byModule[e.concept_id] = byModule[e.concept_id] || [];
-    byModule[e.concept_id].push(scorePct(e));
+  const labels = [];
+  const values = [];
+  state.modules.forEach((m) => {
+    const avg = averageByModule(m.id);
+    if (avg !== null) {
+      labels.push(m.name);
+      values.push(avg);
+    }
   });
-  const labels = Object.keys(byModule);
-  const values = labels.map((k) => Math.round(byModule[k].reduce((a, b) => a + b, 0) / byModule[k].length));
+  if (!labels.length) return;
   drawBarChart(el.moduleChart, labels, values);
+}
+
+function feedbackButtons(recommendationId) {
+  return `
+    <div class="row">
+      <button class="btn" data-feedback="accept" data-rec="${recommendationId}">Accept</button>
+      <button class="btn ghost" data-feedback="edit" data-rec="${recommendationId}">Edit</button>
+      <button class="btn ghost" data-feedback="reject" data-rec="${recommendationId}">Reject</button>
+    </div>`;
+}
+
+function renderInsights(data) {
+  const lines = [];
+  if (data.diagnosis?.length) {
+    const top = data.diagnosis[0];
+    lines.push(`Main issue: ${moduleLabel(top.concept_id)} (${top.cause.replaceAll("_", " ")}).`);
+  }
+  state.modules.forEach((m) => {
+    const avg = averageByModule(m.id);
+    const d = daysTo(m.deadline);
+    if (avg === null || d === null || d <= 0) return;
+    const gap = Math.max(0, 80 - avg);
+    const suggested = Math.min(120, Math.max(20, Math.round((gap / 80) * 90 + (14 / Math.max(d, 1)) * 20)));
+    lines.push(`${m.name} (${m.year}, ${m.semester}): ${avg}% avg, ${d} day(s) to test, study ${suggested} min/day.`);
+  });
+  renderList(el.insights, lines, (line) => `<span>${line}</span>`);
+}
+
+function renderAnalysis(data) {
+  state.latestRecommendationId = data.recommendation_id;
+  saveCurrentUserData();
+
+  renderList(el.conceptStates, data.concept_states || [], (concept) => {
+    const badge = concept.trend === "improving" ? "badge-good" : concept.trend === "regressing" ? "badge-bad" : "badge-warn";
+    return `<strong>${moduleLabel(concept.concept_id)}</strong><div class="muted">Mastery ${Math.round(concept.mastery_score * 100)}% | <span class="${badge}">${concept.trend}</span></div><div class="muted">${(concept.evidence || []).join(" | ")}</div>`;
+  });
+
+  renderList(el.diagnosis, data.diagnosis || [], (diag) => {
+    return `<strong>${moduleLabel(diag.concept_id)}</strong><div class="muted">Cause: ${diag.cause.replaceAll("_", " ")} | Score: ${Math.round(diag.score * 100)}%</div><div class="muted">${(diag.evidence || []).slice(0, 3).join(" | ")}</div>`;
+  });
+
+  el.plan.innerHTML = "";
+  (data.seven_day_plan || []).forEach((task) => {
+    const card = document.createElement("div");
+    card.className = "plan-card";
+    card.innerHTML = `
+      <div class="plan-head"><strong>Day ${task.day} - ${moduleLabel(task.concept_id)}</strong><span class="tag">${task.duration_min} min</span></div>
+      <p>${task.activity}</p>
+      <p class="muted">${task.expected_outcome}</p>
+      <p class="muted">Evidence: ${(task.evidence || []).join(" | ")}</p>
+      ${feedbackButtons(data.recommendation_id)}
+    `;
+    el.plan.appendChild(card);
+  });
+
+  el.plan.querySelectorAll("button[data-feedback]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const action = button.dataset.feedback;
+      const recommendationId = Number(button.dataset.rec);
+      const note = prompt(`Optional note for ${action}:`, `${action} by ${state.user?.username || "student"}`) || "";
+      try {
+        await jsonFetch("/feedback", {
+          method: "POST",
+          body: JSON.stringify({ recommendation_id: recommendationId, action, note }),
+        });
+        setStatus(`Feedback submitted: ${action}`);
+        await refreshMetrics();
+      } catch (err) {
+        setStatus(`Feedback failed: ${err.message}`);
+      }
+    });
+  });
+
+  renderInsights(data);
 }
 
 async function refreshMetrics() {
   try {
     const m = await jsonFetch("/metrics");
+    state.metrics = m;
     el.metrics.innerHTML = `
       <div class="metric"><span>Total Recommendations</span><strong>${m.total_recommendations}</strong></div>
       <div class="metric"><span>Total Feedback</span><strong>${m.total_feedback}</strong></div>
@@ -414,8 +678,132 @@ async function refreshMetrics() {
   }
 }
 
+async function renderYoutubeLinks(topic) {
+  const query = topic.trim();
+  el.youtubeLinks.innerHTML = "";
+  if (!query) {
+    el.youtubeLinks.innerHTML = '<p class="muted">Enter a topic first.</p>';
+    return;
+  }
+
+  setStatus(`Searching YouTube: ${query}`);
+  try {
+    const data = await jsonFetch(`/youtube/search?q=${encodeURIComponent(query)}&limit=10`);
+    if (!data.results?.length) {
+      el.youtubeLinks.innerHTML = '<p class="muted">No YouTube videos found.</p>';
+      setStatus("No YouTube videos found.");
+      return;
+    }
+
+    el.youtubeLinks.innerHTML = data.results
+      .map(
+        (video) => `
+        <div class="item youtube-item">
+          <img src="${video.thumbnail}" alt="${video.title}" class="yt-thumb" />
+          <div>
+            <strong>${video.title}</strong>
+            <div class="muted">${video.channel}${video.duration ? ` | ${video.duration}` : ""}</div>
+            <a href="${video.url}" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
+          </div>
+        </div>`
+      )
+      .join("");
+    setStatus(`Loaded top ${data.results.length} YouTube videos.`);
+  } catch (err) {
+    el.youtubeLinks.innerHTML = `<p class="muted">YouTube search failed: ${err.message}</p>`;
+    setStatus(`YouTube search failed: ${err.message}`);
+  }
+}
+
+function moduleSetupIssues() {
+  const issues = [];
+  state.modules.forEach((module) => {
+    const detail = ensureModuleDetails(module.id);
+    if (!detail.topics.length) issues.push(`${module.name} (${module.year}, ${module.semester}) missing topics`);
+    if (!detail.assignments.length) issues.push(`${module.name} (${module.year}, ${module.semester}) missing assignments`);
+  });
+  return issues;
+}
+
+function enterSession(username) {
+  state.user = { username };
+  localStorage.setItem(SESSION_KEY, username);
+
+  const data = loadUserData(username);
+  state.modules = data.modules;
+  state.moduleDetails = data.moduleDetails;
+  state.events = data.events;
+  state.latestRecommendationId = data.latestRecommendationId;
+
+  renderSession();
+  renderModules();
+  renderModuleDetails();
+  renderEvents();
+  renderDashboard();
+  drawCharts();
+  void refreshMetrics();
+  showAppView();
+  navigateToScreen("dashboard");
+  setStatus("Ready");
+}
+
+function logoutSession() {
+  saveCurrentUserData();
+  state.user = null;
+  clearRuntimeData();
+  localStorage.removeItem(SESSION_KEY);
+  showAuthView();
+  renderSession();
+  setAuthStatus("Logged out. Login again to continue.");
+}
+
+el.signupBtn.addEventListener("click", () => {
+  const username = el.authUsername.value.trim();
+  const password = el.authPassword.value;
+  if (!username || !password) {
+    setAuthStatus("Enter username and password.");
+    return;
+  }
+
+  const accounts = loadAccounts();
+  if (accounts[username]) {
+    setAuthStatus("Username already exists. Use Login.");
+    return;
+  }
+
+  accounts[username] = { password };
+  saveAccounts(accounts);
+  setAuthStatus("Account created. Logged in.");
+  enterSession(username);
+});
+
+el.loginBtn.addEventListener("click", () => {
+  const username = el.authUsername.value.trim();
+  const password = el.authPassword.value;
+  if (!username || !password) {
+    setAuthStatus("Enter username and password.");
+    return;
+  }
+
+  const accounts = loadAccounts();
+  if (!accounts[username]) {
+    setAuthStatus("Account not found. Create account first.");
+    return;
+  }
+  if (accounts[username].password !== password) {
+    setAuthStatus("Wrong password.");
+    return;
+  }
+
+  setAuthStatus("Login successful.");
+  enterSession(username);
+});
+
+el.logoutBtn.addEventListener("click", logoutSession);
+
 btn.health.addEventListener("click", async () => {
   state.apiBase = el.apiBase.value.trim();
+  localStorage.setItem("leap_api_base", state.apiBase);
   try {
     const health = await jsonFetch("/health");
     setStatus(`Backend healthy: ${health.status}`);
@@ -424,122 +812,256 @@ btn.health.addEventListener("click", async () => {
   }
 });
 
-btn.register.addEventListener("click", async () => {
-  state.apiBase = el.apiBase.value.trim();
-  const schoolId = el.schoolId.value.trim();
-  const name = el.studentName.value.trim();
-  if (!schoolId || !name) {
-    setStatus("Enter school ID and name.");
-    return;
-  }
-
-  try {
-    const user = await jsonFetch("/users/register", {
-      method: "POST",
-      body: JSON.stringify({ school_id: schoolId, name }),
-    });
-    state.user = user;
-    saveLocal();
-    renderAccount();
-    setStatus(`Signed in as ${user.name}.`);
-  } catch (err) {
-    setStatus(`Registration failed: ${err.message}`);
-  }
-});
-
 btn.addModule.addEventListener("click", () => {
-  const name = toSlug(el.moduleInput.value);
+  if (!state.user) return;
+  const year = el.moduleYear.value.trim();
+  const semester = el.moduleSemester.value.trim();
+  const name = slug(el.moduleInput.value);
   const deadline = el.moduleDeadline.value || null;
   if (!name) {
-    setStatus("Module cannot be empty.");
+    setStatus("Enter module name.");
     return;
   }
-  if (!findModule(name)) {
-    state.modules.push({ name, deadline });
-    saveLocal();
-    renderModules();
+
+  const id = moduleId(year, semester, name);
+  if (state.modules.some((module) => module.id === id)) {
+    setStatus("This module already exists in selected year + semester.");
+    return;
   }
+
+  state.modules.push({ id, name, year, semester, deadline });
+  ensureModuleDetails(id);
+  state.modules.sort((a, b) => a.year.localeCompare(b.year) || a.semester.localeCompare(b.semester) || a.name.localeCompare(b.name));
+  saveCurrentUserData();
+  renderModules();
+  renderModuleDetails();
+  renderDashboard();
   el.moduleInput.value = "";
   el.moduleDeadline.value = "";
+  setStatus(`Added ${name} in ${year}, ${semester}`);
+});
+
+btn.addTopic.addEventListener("click", () => {
+  if (!state.user) return;
+  const moduleIdValue = el.detailModuleSelect.value;
+  const topic = el.topicInput.value.trim();
+  if (!moduleIdValue || !moduleById(moduleIdValue)) {
+    setStatus("Select a module first.");
+    return;
+  }
+  if (!topic) {
+    setStatus("Enter a topic.");
+    return;
+  }
+
+  const detail = ensureModuleDetails(moduleIdValue);
+  if (!detail.topics.includes(topic)) detail.topics.push(topic);
+  saveCurrentUserData();
+  renderModuleDetails();
+  renderDashboard();
+  el.topicInput.value = "";
+  setStatus(`Topic added to ${moduleLabel(moduleIdValue)}`);
+});
+
+btn.addAssignment.addEventListener("click", () => {
+  if (!state.user) return;
+  const moduleIdValue = el.detailModuleSelect.value;
+  const title = el.assignmentTitle.value.trim();
+  const marksObtained = Number(el.assignmentMarksObtained.value);
+  const marksTotal = Number(el.assignmentMarksTotal.value);
+  const dueDate = el.assignmentDueDate.value;
+
+  if (!moduleIdValue || !moduleById(moduleIdValue)) {
+    setStatus("Select a module first.");
+    return;
+  }
+  if (!title) {
+    setStatus("Enter assignment title.");
+    return;
+  }
+  if (!(marksTotal > 0) || marksObtained < 0 || marksObtained > marksTotal) {
+    setStatus("Invalid assignment marks.");
+    return;
+  }
+  if (!dueDate) {
+    setStatus("Select assignment due date.");
+    return;
+  }
+
+  const detail = ensureModuleDetails(moduleIdValue);
+  detail.assignments.push({
+    id: `a_${Date.now()}`,
+    title,
+    marks_obtained: marksObtained,
+    marks_total: marksTotal,
+    due_date: dueDate,
+  });
+
+  saveCurrentUserData();
+  renderModuleDetails();
+  renderDashboard();
+  drawCharts();
+  el.assignmentTitle.value = "";
+  el.assignmentMarksObtained.value = "0";
+  el.assignmentMarksTotal.value = "10";
+  el.assignmentDueDate.value = "";
+  setStatus(`Assignment added to ${moduleLabel(moduleIdValue)}`);
 });
 
 btn.addEvent.addEventListener("click", () => {
   if (!state.user) {
-    setStatus("Create account first.");
+    setStatus("Login first.");
     return;
   }
   if (!state.modules.length) {
-    setStatus("Add at least one module first.");
+    setStatus("Add modules first.");
     return;
   }
 
+  const conceptId = el.eventConcept.value;
   const marksObtained = Number(el.eventMarksObtained.value);
   const marksTotal = Number(el.eventMarksTotal.value);
+  const responseTimeSec = Number(el.eventRt.value);
+  const difficulty = Number(el.eventDifficulty.value);
+  const attemptNo = Number(el.eventAttempt.value);
+
+  if (!conceptId) {
+    setStatus("Select a module.");
+    return;
+  }
   if (!(marksTotal > 0) || marksObtained < 0 || marksObtained > marksTotal) {
-    setStatus("Marks invalid. Ensure 0 <= scored <= total.");
+    setStatus("Invalid marks.");
+    return;
+  }
+  if (!(responseTimeSec > 0)) {
+    setStatus("Response time must be > 0.");
+    return;
+  }
+  if (difficulty < 0 || difficulty > 1) {
+    setStatus("Difficulty must be between 0 and 1.");
+    return;
+  }
+  if (!(attemptNo >= 1)) {
+    setStatus("Attempt number must be >= 1.");
     return;
   }
 
   const pct = marksObtained / marksTotal;
-  const event = {
-    student_id: state.user.school_id,
+  state.events.push({
+    student_id: state.user.username,
     timestamp: new Date().toISOString(),
     question_id: `q_${Date.now()}`,
-    concept_id: el.eventConcept.value,
+    concept_id: conceptId,
     correct: pct >= 0.5 ? 1 : 0,
-    response_time_sec: Number(el.eventRt.value),
-    attempt_no: Number(el.eventAttempt.value),
-    difficulty: Number(el.eventDifficulty.value),
-    source: "user_app",
+    response_time_sec: responseTimeSec,
+    attempt_no: attemptNo,
+    difficulty,
+    source: "study_log",
     marks_obtained: marksObtained,
     marks_total: marksTotal,
-  };
+  });
 
-  state.events.push(event);
-  saveLocal();
+  saveCurrentUserData();
   renderEvents();
-  setStatus("Log entry added.");
+  renderDashboard();
+  setStatus("Study log added.");
 });
 
 btn.clearEvents.addEventListener("click", () => {
+  if (!state.user) return;
   state.events = [];
-  saveLocal();
+  saveCurrentUserData();
   renderEvents();
+  renderDashboard();
   el.conceptStates.innerHTML = "";
   el.diagnosis.innerHTML = "";
   el.plan.innerHTML = "";
   el.insights.innerHTML = "";
-  setStatus("Logs cleared.");
+  setStatus("Study logs cleared.");
 });
 
 btn.analyze.addEventListener("click", async () => {
   if (!state.user) {
-    setStatus("Create account first.");
+    setStatus("Login first.");
     return;
   }
-  if (!state.events.length) {
-    setStatus("Add study log entries first.");
+  if (!state.modules.length) {
+    setStatus("Add modules first.");
     return;
   }
 
+  const issues = moduleSetupIssues();
+  if (issues.length) {
+    setStatus(`Complete module setup first: ${issues[0]}`);
+    return;
+  }
+
+  const dailyMinutes = Number(el.dailyMinutes.value || 45);
+  if (dailyMinutes < 15 || dailyMinutes > 240) {
+    setStatus("Daily minutes must be between 15 and 240.");
+    return;
+  }
+
+  const assignmentEvents = [];
+  state.modules.forEach((module) => {
+    const detail = ensureModuleDetails(module.id);
+    detail.assignments.forEach((assignment, index) => {
+      const pct = assignment.marks_obtained / assignment.marks_total;
+      assignmentEvents.push({
+        student_id: state.user.username,
+        timestamp: new Date(`${assignment.due_date}T12:00:00`).toISOString(),
+        question_id: `assign_${module.id}_${index}`,
+        concept_id: module.id,
+        correct: pct >= 0.5 ? 1 : 0,
+        response_time_sec: 60,
+        attempt_no: 1,
+        difficulty: 0.6,
+        source: "assignment",
+      });
+    });
+  });
+
+  const logEvents = state.events.map((event) => ({
+    student_id: event.student_id,
+    timestamp: event.timestamp,
+    question_id: event.question_id,
+    concept_id: event.concept_id,
+    correct: event.correct,
+    response_time_sec: event.response_time_sec,
+    attempt_no: event.attempt_no,
+    difficulty: event.difficulty,
+    source: event.source,
+  }));
+
+  const mergedEvents = [...logEvents, ...assignmentEvents];
+  if (!mergedEvents.length) {
+    setStatus("Add at least one study log or assignment first.");
+    return;
+  }
+
+  const moduleContexts = state.modules.map((module) => {
+    const detail = ensureModuleDetails(module.id);
+    return {
+      concept_id: module.id,
+      topics: detail.topics,
+      assignments: detail.assignments.map((a) => ({
+        title: a.title,
+        due_date: new Date(`${a.due_date}T12:00:00`).toISOString(),
+        marks_obtained: a.marks_obtained,
+        marks_total: a.marks_total,
+      })),
+    };
+  });
+
   try {
-    setStatus("Running analysis on your data...");
+    setStatus("Generating 7-day plan...");
     const data = await jsonFetch("/analyze", {
       method: "POST",
       body: JSON.stringify({
-        student_id: state.user.school_id,
-        daily_minutes: Number(el.dailyMinutes.value || 45),
-        events: state.events.map((e) => ({
-          student_id: e.student_id,
-          timestamp: e.timestamp,
-          question_id: e.question_id,
-          concept_id: e.concept_id,
-          correct: e.correct,
-          response_time_sec: e.response_time_sec,
-          attempt_no: e.attempt_no,
-          difficulty: e.difficulty,
-          source: e.source,
-        })),
+        student_id: state.user.username,
+        daily_minutes: dailyMinutes,
+        events: mergedEvents,
+        module_contexts: moduleContexts,
       }),
     });
     renderAnalysis(data);
@@ -551,13 +1073,19 @@ btn.analyze.addEventListener("click", async () => {
 });
 
 btn.metrics.addEventListener("click", refreshMetrics);
-btn.youtube.addEventListener("click", () => void renderYoutubeLinks(el.weakTopicInput.value));
+btn.youtube.addEventListener("click", () => {
+  void renderYoutubeLinks(el.weakTopicInput.value);
+});
 
 (function init() {
-  loadLocal();
-  renderAccount();
-  renderModules();
-  renderEvents();
-  refreshMetrics();
-  drawCharts();
+  initNavigation();
+  el.apiBase.value = state.apiBase;
+
+  const remembered = localStorage.getItem(SESSION_KEY);
+  if (remembered) {
+    el.authUsername.value = remembered;
+  }
+
+  showAuthView();
+  renderSession();
 })();

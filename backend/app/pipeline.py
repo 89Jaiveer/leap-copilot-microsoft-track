@@ -31,6 +31,7 @@ def _activity_for_cause(cause: str) -> tuple[str, str]:
 def build_seven_day_plan(request: AnalyzeRequest) -> AnalyzeResponse:
     states = compute_concept_states(request.events)
     diagnosis = diagnose(states)
+    ctx_by_concept = {ctx.concept_id: ctx for ctx in request.module_contexts}
 
     plan: list[DailyTask] = []
     if diagnosis:
@@ -40,12 +41,16 @@ def build_seven_day_plan(request: AnalyzeRequest) -> AnalyzeResponse:
         for day in range(1, 8):
             current = top[(day - 1) % len(top)]
             activity, outcome = _activity_for_cause(current.cause)
+            context = ctx_by_concept.get(current.concept_id)
+            topic_hint = ""
+            if context and context.topics:
+                topic_hint = f" Focus topic: {context.topics[(day - 1) % len(context.topics)]}."
             duration = min(max(15, daily_budget // len(top)), 60)
             plan.append(
                 DailyTask(
                     day=day,
                     concept_id=current.concept_id,
-                    activity=activity,
+                    activity=f"{activity}.{topic_hint}".strip(),
                     duration_min=duration,
                     expected_outcome=outcome,
                     confidence=round(max(0.5, current.score), 3),
@@ -72,6 +77,13 @@ def build_seven_day_plan(request: AnalyzeRequest) -> AnalyzeResponse:
     normalized: list[DailyTask] = []
     for item in sorted(plan, key=lambda x: x.day):
         evidence = item.evidence if item.evidence else ["insufficient_evidence_fallback"]
+        context = ctx_by_concept.get(item.concept_id)
+        if context and context.assignments:
+            nearest = sorted(context.assignments, key=lambda a: a.due_date)[0]
+            evidence = [
+                *evidence,
+                f"assignment_due:{nearest.title}@{nearest.due_date.date().isoformat()}",
+            ]
         normalized.append(item.model_copy(update={"evidence": evidence[:4]}))
 
     summary = (
