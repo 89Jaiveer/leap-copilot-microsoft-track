@@ -5,7 +5,7 @@ LEAP Copilot is an AI-powered learning support system that models a student's ev
 ## Current Build Status
 Implemented:
 - Phase 1 backend MVP
-- Phase 2 lightweight dashboard frontend
+- Phase 2/3 integrated dashboard frontend (Jon + backend sync)
 
 ## API Endpoints
 - `GET /health`
@@ -33,8 +33,10 @@ Open:
 - `http://127.0.0.1:5173`
 
 Then test:
-- `Check API Health`
-- `Analyze Sample`
+- Click `Refresh` to load student dashboard
+- Select recommendation cards to view evidence details
+- Try `Mark Accepted`, `Dismiss`, and `Edit` (override dialog)
+- Re-click `Refresh` to pull latest metrics-backed summary
 
 ### Feedback + Metrics quick test
 ```bash
@@ -47,7 +49,9 @@ curl http://127.0.0.1:8000/metrics
 
 ## Repository Structure
 - `backend/app/` API and analysis pipeline
-- `frontend/` dashboard UI (HTML/CSS/JS)
+- `frontend/src/` dashboard logic modules
+- `frontend/styles/main.css` polished UI styling
+- `frontend/assets/icons/` iconography and brand assets
 - `data/` sample dataset and request JSON
 - `docs/` architecture and competitive analysis
 - `testbench/` grader run instructions
@@ -55,4 +59,4 @@ curl http://127.0.0.1:8000/metrics
 ## Responsible AI Notes
 - Recommendation outputs include explicit evidence fields.
 - Output schema is deterministic and structured.
-- Student actions are designed to be editable by humans in the next phase.
+- Student actions are editable with a human override loop (`accept/edit/reject`) and tracked in metrics.

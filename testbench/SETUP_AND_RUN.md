@@ -67,9 +67,16 @@ python3 -m http.server 5173
 Open:
 - `http://127.0.0.1:5173`
 
-Then click:
-- `Check API Health`
-- `Analyze Sample`
+Then in UI:
+- Keep default `Student ID` or enter custom
+- Click `Refresh`
+- Review `Summary`, `7-Day Plan`, and `Recommendations`
+- Click any recommendation card to open `Why this recommendation?` evidence panel
+- Use actions:
+  - `Mark Accepted` -> sends `/feedback` with `accept`
+  - `Dismiss` -> sends `/feedback` with `reject`
+  - `Edit` -> opens override dialog and sends `/feedback` with `edit`
+- Click `Refresh` again to see updated metrics reflected in summary KPIs
 
 ## 7) Example Direct Analyze Payload
 ```bash

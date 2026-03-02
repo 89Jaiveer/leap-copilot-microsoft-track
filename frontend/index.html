@@ -3,124 +3,90 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LEAP Copilot Dashboard</title>
+    <title>LEAP Copilot</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles/main.css" />
   </head>
   <body>
-    <div class="bg-orb orb-a"></div>
-    <div class="bg-orb orb-b"></div>
-
-    <main class="shell">
-      <header class="hero">
+    <div class="background-orb orb-a"></div>
+    <div class="background-orb orb-b"></div>
+    <header class="topbar">
+      <div class="brand">
+        <img src="./assets/icons/logo-leap.svg" alt="LEAP Copilot logo" class="brand-logo" />
         <div>
-          <p class="kicker">MICROSOFT TRACK MVP</p>
           <h1>LEAP Copilot</h1>
-          <p class="subtitle">
-            Explainable learning-state diagnosis, human feedback loop, and measurable recommendation quality.
-          </p>
+          <p>Evidence-backed learning coach</p>
         </div>
-      </header>
+      </div>
+      <div class="topbar-controls">
+        <label for="student-id-input">Student ID</label>
+        <input id="student-id-input" type="text" value="S-1024" />
+        <button id="refresh-btn" type="button">Refresh</button>
+      </div>
+    </header>
 
-      <section class="panel controls">
-        <div class="api-row">
-          <label for="apiBase">API Base</label>
-          <input id="apiBase" value="http://127.0.0.1:8000" />
-        </div>
+    <main class="layout">
+      <section id="summary-panel" class="panel summary-panel" aria-live="polite"></section>
 
-        <div class="actions">
-          <button id="healthBtn" class="btn btn-secondary">Check API Health</button>
-          <button id="analyzeSampleBtn" class="btn btn-primary">Analyze Sample</button>
-          <button id="analyzeCustomBtn" class="btn btn-primary">Analyze Custom JSON</button>
-          <button id="metricsBtn" class="btn btn-secondary">Refresh Metrics</button>
+      <section class="panel recommendations-panel">
+        <div class="panel-title-row">
+          <h2>7-Day Plan</h2>
+          <span id="mode-chip" class="mode-chip hidden">Demo data</span>
         </div>
-
-        <div class="status" id="statusBox">
-          <span class="status-label">Status</span>
-          <span id="statusText">Idle</span>
-        </div>
-
-        <div class="request-box">
-          <p class="hint">Custom analyze payload</p>
-          <textarea id="requestInput" rows="10"></textarea>
-        </div>
+        <div id="plan-grid" class="plan-grid" aria-live="polite"></div>
+        <h2>Recommendations</h2>
+        <div id="recommendations-list" class="recommendations-list" aria-live="polite"></div>
       </section>
 
-      <section class="grid three-up">
-        <article class="panel metric">
-          <h3>Latest Recommendation ID</h3>
-          <p id="latestRecommendation" class="metric-value">-</p>
-        </article>
-        <article class="panel metric">
-          <h3>Actionability Rate</h3>
-          <p id="metricActionability" class="metric-value">-</p>
-        </article>
-        <article class="panel metric">
-          <h3>Explainability Coverage</h3>
-          <p id="metricExplainability" class="metric-value">-</p>
-        </article>
-      </section>
-
-      <section class="panel">
-        <h2>Human Feedback</h2>
-        <div class="feedback-row">
-          <label for="feedbackRecommendationId">Recommendation ID</label>
-          <input id="feedbackRecommendationId" type="number" min="1" placeholder="Auto-filled after analysis" />
-          <label for="feedbackAction">Action</label>
-          <select id="feedbackAction">
-            <option value="accept">accept</option>
-            <option value="edit">edit</option>
-            <option value="reject">reject</option>
-          </select>
-        </div>
-        <textarea id="feedbackNote" rows="2" placeholder="Why you accepted/edited/rejected"></textarea>
-        <div class="actions">
-          <button id="submitFeedbackBtn" class="btn btn-primary">Submit Feedback</button>
-        </div>
-      </section>
-
-      <section class="grid two-up">
-        <article class="panel">
-          <h2>Concept States</h2>
-          <p class="hint">Weakest concepts are shown first.</p>
-          <div id="conceptStates" class="stack"></div>
-        </article>
-
-        <article class="panel">
-          <h2>Diagnosis</h2>
-          <p class="hint">Cause classification with confidence score.</p>
-          <div id="diagnosis" class="stack"></div>
-        </article>
-      </section>
-
-      <section class="panel">
-        <h2>7-Day Action Plan</h2>
-        <p class="hint">Actionable tasks with evidence and expected outcomes.</p>
-        <div id="plan" class="plan-grid"></div>
-      </section>
-
-      <section class="panel">
-        <h2>System Metrics</h2>
-        <div id="metricsPanel" class="stack"></div>
-      </section>
+      <section id="evidence-panel" class="panel evidence-panel" aria-live="polite"></section>
     </main>
 
-    <template id="cardTemplate">
-      <div class="card reveal">
-        <div class="card-head">
-          <h3 class="card-title"></h3>
-          <span class="chip"></span>
-        </div>
-        <p class="card-body"></p>
-        <ul class="evidence"></ul>
-      </div>
+    <dialog id="override-dialog" class="override-dialog">
+      <form method="dialog" id="override-form">
+        <h3>Edit Recommendation</h3>
+        <p class="hint">Adjust schedule or effort. LEAP keeps your override and rationale.</p>
+
+        <label for="override-day">Study Day</label>
+        <select id="override-day" required>
+          <option value="Mon">Monday</option>
+          <option value="Tue">Tuesday</option>
+          <option value="Wed">Wednesday</option>
+          <option value="Thu">Thursday</option>
+          <option value="Fri">Friday</option>
+          <option value="Sat">Saturday</option>
+          <option value="Sun">Sunday</option>
+        </select>
+
+        <label for="override-minutes">Planned Minutes</label>
+        <input id="override-minutes" type="number" min="10" max="180" step="5" required />
+
+        <label for="override-note">Override Note</label>
+        <textarea
+          id="override-note"
+          rows="3"
+          placeholder="Example: Moving this to Thursday after math tutoring."
+          required
+        ></textarea>
+
+        <menu class="dialog-actions">
+          <button type="button" id="cancel-override-btn" class="ghost-btn">Cancel</button>
+          <button type="submit">Save Override</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <template id="loading-template">
+      <div class="skeleton skeleton-line"></div>
+      <div class="skeleton skeleton-line short"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
     </template>
 
-    <script src="./app.js"></script>
+    <script type="module" src="./src/app.js"></script>
   </body>
 </html>
