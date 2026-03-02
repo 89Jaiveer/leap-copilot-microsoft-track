@@ -1,10 +1,9 @@
 const state = {
   apiBase: "http://127.0.0.1:8000",
   user: null,
-  modules: [],
+  modules: [], // {name, deadline}
   events: [],
   latestRecommendationId: null,
-  lastAnalysis: null,
 };
 
 const el = {
@@ -14,9 +13,11 @@ const el = {
   studentName: document.getElementById("studentName"),
   accountInfo: document.getElementById("accountInfo"),
   moduleInput: document.getElementById("moduleInput"),
+  moduleDeadline: document.getElementById("moduleDeadline"),
   moduleList: document.getElementById("moduleList"),
   eventConcept: document.getElementById("eventConcept"),
-  eventCorrect: document.getElementById("eventCorrect"),
+  eventMarksObtained: document.getElementById("eventMarksObtained"),
+  eventMarksTotal: document.getElementById("eventMarksTotal"),
   eventRt: document.getElementById("eventRt"),
   eventDifficulty: document.getElementById("eventDifficulty"),
   eventAttempt: document.getElementById("eventAttempt"),
@@ -25,7 +26,12 @@ const el = {
   conceptStates: document.getElementById("conceptStates"),
   diagnosis: document.getElementById("diagnosis"),
   plan: document.getElementById("plan"),
+  insights: document.getElementById("insights"),
   metrics: document.getElementById("metrics"),
+  weakTopicInput: document.getElementById("weakTopicInput"),
+  youtubeLinks: document.getElementById("youtubeLinks"),
+  trendChart: document.getElementById("trendChart"),
+  moduleChart: document.getElementById("moduleChart"),
 };
 
 const btn = {
@@ -36,7 +42,16 @@ const btn = {
   clearEvents: document.getElementById("clearEventsBtn"),
   analyze: document.getElementById("analyzeBtn"),
   metrics: document.getElementById("metricsBtn"),
+  youtube: document.getElementById("youtubeBtn"),
 };
+
+const CHANNELS = [
+  "Khan Academy",
+  "The Organic Chemistry Tutor",
+  "Eddie Woo",
+  "Cognito",
+  "ExamSolutions",
+];
 
 function setStatus(text) {
   el.statusText.textContent = text;
@@ -60,6 +75,10 @@ async function jsonFetch(path, options = {}) {
   return await res.json();
 }
 
+function toSlug(value) {
+  return value.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
 function saveLocal() {
   localStorage.setItem("leap_user", JSON.stringify(state.user));
   localStorage.setItem("leap_modules", JSON.stringify(state.modules));
@@ -75,8 +94,16 @@ function loadLocal() {
     state.modules = Array.isArray(modules) ? modules : [];
     state.events = Array.isArray(events) ? events : [];
   } catch {
-    // ignore corrupted local state
+    // ignore corrupted local storage
   }
+}
+
+function findModule(name) {
+  return state.modules.find((m) => m.name === name);
+}
+
+function scorePct(event) {
+  return Math.round((event.marks_obtained / event.marks_total) * 100);
 }
 
 function renderAccount() {
@@ -94,10 +121,10 @@ function renderModules() {
   if (!state.modules.length) {
     el.moduleList.innerHTML = '<span class="muted">No modules added yet.</span>';
   } else {
-    state.modules.forEach((m) => {
+    state.modules.forEach((m, i) => {
       const chip = document.createElement("span");
       chip.className = "chip";
-      chip.textContent = m;
+      chip.innerHTML = `${m.name}${m.deadline ? ` (test: ${m.deadline})` : ""} <button class="btn ghost" data-rem-module="${i}">x</button>`;
       el.moduleList.appendChild(chip);
     });
   }
@@ -105,15 +132,24 @@ function renderModules() {
   el.eventConcept.innerHTML = "";
   state.modules.forEach((m) => {
     const option = document.createElement("option");
-    option.value = m;
-    option.textContent = m;
+    option.value = m.name;
+    option.textContent = m.name;
     el.eventConcept.appendChild(option);
+  });
+
+  el.moduleList.querySelectorAll("button[data-rem-module]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.modules.splice(Number(button.dataset.remModule), 1);
+      saveLocal();
+      renderModules();
+    });
   });
 }
 
 function renderEvents() {
   if (!state.events.length) {
     el.eventTableWrap.innerHTML = '<p class="muted">No study logs yet.</p>';
+    drawCharts();
     return;
   }
 
@@ -123,7 +159,7 @@ function renderEvents() {
       <tr>
         <td>${i + 1}</td>
         <td>${e.concept_id}</td>
-        <td>${e.correct ? "Yes" : "No"}</td>
+        <td>${e.marks_obtained}/${e.marks_total} (${scorePct(e)}%)</td>
         <td>${e.response_time_sec}</td>
         <td>${e.difficulty}</td>
         <td>${e.attempt_no}</td>
@@ -135,19 +171,20 @@ function renderEvents() {
   el.eventTableWrap.innerHTML = `
     <table>
       <thead>
-        <tr><th>#</th><th>Concept</th><th>Correct</th><th>RT(s)</th><th>Difficulty</th><th>Attempt</th><th>Action</th></tr>
+        <tr><th>#</th><th>Module</th><th>Marks</th><th>RT(s)</th><th>Difficulty</th><th>Attempt</th><th>Action</th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
 
   el.eventTableWrap.querySelectorAll("button[data-remove]").forEach((button) => {
     button.addEventListener("click", () => {
-      const idx = Number(button.dataset.remove);
-      state.events.splice(idx, 1);
+      state.events.splice(Number(button.dataset.remove), 1);
       saveLocal();
       renderEvents();
     });
   });
+
+  drawCharts();
 }
 
 function renderList(container, items, formatter) {
@@ -174,7 +211,6 @@ function feedbackButtons(recommendationId) {
 }
 
 function renderAnalysis(data) {
-  state.lastAnalysis = data;
   state.latestRecommendationId = data.recommendation_id;
 
   renderList(el.conceptStates, data.concept_states || [], (c) => {
@@ -183,7 +219,7 @@ function renderAnalysis(data) {
   });
 
   renderList(el.diagnosis, data.diagnosis || [], (d) => {
-    return `<strong>${d.concept_id}</strong><div class="muted">Cause: ${d.cause} | Score: ${Math.round(d.score * 100)}%</div><div class="muted">${(d.evidence || []).slice(0,3).join(" | ")}</div>`;
+    return `<strong>${d.concept_id}</strong><div class="muted">Cause: ${d.cause} | Score: ${Math.round(d.score * 100)}%</div><div class="muted">${(d.evidence || []).slice(0, 3).join(" | ")}</div>`;
   });
 
   el.plan.innerHTML = "";
@@ -208,11 +244,7 @@ function renderAnalysis(data) {
       try {
         await jsonFetch("/feedback", {
           method: "POST",
-          body: JSON.stringify({
-            recommendation_id: recommendationId,
-            action,
-            note,
-          }),
+          body: JSON.stringify({ recommendation_id: recommendationId, action, note }),
         });
         setStatus(`Feedback submitted: ${action}.`);
         await refreshMetrics();
@@ -221,6 +253,140 @@ function renderAnalysis(data) {
       }
     });
   });
+
+  renderInsights(data);
+}
+
+function daysTo(dateText) {
+  if (!dateText) return null;
+  const now = new Date();
+  const target = new Date(dateText);
+  if (Number.isNaN(target.getTime())) return null;
+  return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+}
+
+function moduleAverage(moduleName) {
+  const records = state.events.filter((e) => e.concept_id === moduleName);
+  if (!records.length) return null;
+  return records.reduce((acc, e) => acc + scorePct(e), 0) / records.length;
+}
+
+function renderInsights(data) {
+  const insights = [];
+
+  if (data.diagnosis?.length) {
+    const top = data.diagnosis[0];
+    insights.push(`Top weakness: ${top.concept_id} (${top.cause.replaceAll("_", " ")}).`);
+  }
+
+  const modulePlans = state.modules
+    .map((m) => {
+      const avg = moduleAverage(m.name);
+      const d = daysTo(m.deadline);
+      if (avg == null || d == null || d <= 0) return null;
+      const gap = Math.max(0, 80 - avg);
+      const minutes = Math.max(20, Math.round((gap / 80) * 90 + (14 / Math.max(d, 1)) * 20));
+      return { module: m.name, avg: Math.round(avg), days: d, suggested: Math.min(minutes, 120) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.days - b.days);
+
+  modulePlans.forEach((p) => {
+    insights.push(
+      `${p.module}: ${p.avg}% average, ${p.days} day(s) to test. Suggested daily focus: ${p.suggested} minutes.`
+    );
+  });
+
+  renderList(el.insights, insights, (line) => `<span>${line}</span>`);
+}
+
+function youtubeSearchLink(query) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+}
+
+function renderYoutubeLinks(topic) {
+  if (!topic.trim()) {
+    el.youtubeLinks.innerHTML = '<p class="muted">Enter a weak topic first.</p>';
+    return;
+  }
+
+  const query = topic.trim();
+  const links = [
+    { label: `Top videos for ${query}`, url: youtubeSearchLink(`${query} explained for students`) },
+    ...CHANNELS.map((c) => ({ label: `${c} - ${query}`, url: youtubeSearchLink(`${c} ${query}`) })),
+  ];
+
+  el.youtubeLinks.innerHTML = links
+    .map((l) => `<div class="item"><a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.label}</a></div>`)
+    .join("");
+}
+
+function clearCanvas(canvas) {
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  return ctx;
+}
+
+function drawLineChart(canvas, values) {
+  const ctx = clearCanvas(canvas);
+  ctx.strokeStyle = "#4ce1ff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const pad = 24;
+  const w = canvas.width - pad * 2;
+  const h = canvas.height - pad * 2;
+  const max = 100;
+
+  values.forEach((v, i) => {
+    const x = pad + (i / Math.max(values.length - 1, 1)) * w;
+    const y = pad + ((max - v) / max) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  ctx.fillStyle = "#9aa8d6";
+  ctx.font = "12px Inter";
+  ctx.fillText("Score %", 8, 14);
+}
+
+function drawBarChart(canvas, labels, values) {
+  const ctx = clearCanvas(canvas);
+  const pad = 24;
+  const w = canvas.width - pad * 2;
+  const h = canvas.height - pad * 2;
+  const barW = w / Math.max(values.length, 1) - 10;
+
+  values.forEach((v, i) => {
+    const x = pad + i * (barW + 10);
+    const barH = (v / 100) * h;
+    const y = pad + (h - barH);
+    ctx.fillStyle = "rgba(209,108,255,0.85)";
+    ctx.fillRect(x, y, barW, barH);
+    ctx.fillStyle = "#9aa8d6";
+    ctx.font = "11px Inter";
+    ctx.fillText(labels[i].slice(0, 10), x, pad + h + 14);
+  });
+}
+
+function drawCharts() {
+  const scores = state.events.map((e) => scorePct(e));
+  if (!scores.length) {
+    clearCanvas(el.trendChart).fillText("Add study logs to see trend", 20, 30);
+    clearCanvas(el.moduleChart).fillText("Add study logs to see module graph", 20, 30);
+    return;
+  }
+
+  drawLineChart(el.trendChart, scores);
+
+  const byModule = {};
+  state.events.forEach((e) => {
+    byModule[e.concept_id] = byModule[e.concept_id] || [];
+    byModule[e.concept_id].push(scorePct(e));
+  });
+  const labels = Object.keys(byModule);
+  const values = labels.map((k) => Math.round(byModule[k].reduce((a, b) => a + b, 0) / byModule[k].length));
+  drawBarChart(el.moduleChart, labels, values);
 }
 
 async function refreshMetrics() {
@@ -274,17 +440,19 @@ btn.register.addEventListener("click", async () => {
 });
 
 btn.addModule.addEventListener("click", () => {
-  const module = el.moduleInput.value.trim().toLowerCase().replace(/\s+/g, "_");
-  if (!module) {
+  const name = toSlug(el.moduleInput.value);
+  const deadline = el.moduleDeadline.value || null;
+  if (!name) {
     setStatus("Module cannot be empty.");
     return;
   }
-  if (!state.modules.includes(module)) {
-    state.modules.push(module);
+  if (!findModule(name)) {
+    state.modules.push({ name, deadline });
     saveLocal();
     renderModules();
   }
   el.moduleInput.value = "";
+  el.moduleDeadline.value = "";
 });
 
 btn.addEvent.addEventListener("click", () => {
@@ -297,16 +465,26 @@ btn.addEvent.addEventListener("click", () => {
     return;
   }
 
+  const marksObtained = Number(el.eventMarksObtained.value);
+  const marksTotal = Number(el.eventMarksTotal.value);
+  if (!(marksTotal > 0) || marksObtained < 0 || marksObtained > marksTotal) {
+    setStatus("Marks invalid. Ensure 0 <= scored <= total.");
+    return;
+  }
+
+  const pct = marksObtained / marksTotal;
   const event = {
     student_id: state.user.school_id,
     timestamp: new Date().toISOString(),
     question_id: `q_${Date.now()}`,
     concept_id: el.eventConcept.value,
-    correct: Number(el.eventCorrect.value),
+    correct: pct >= 0.5 ? 1 : 0,
     response_time_sec: Number(el.eventRt.value),
     attempt_no: Number(el.eventAttempt.value),
     difficulty: Number(el.eventDifficulty.value),
     source: "user_app",
+    marks_obtained: marksObtained,
+    marks_total: marksTotal,
   };
 
   state.events.push(event);
@@ -319,6 +497,10 @@ btn.clearEvents.addEventListener("click", () => {
   state.events = [];
   saveLocal();
   renderEvents();
+  el.conceptStates.innerHTML = "";
+  el.diagnosis.innerHTML = "";
+  el.plan.innerHTML = "";
+  el.insights.innerHTML = "";
   setStatus("Logs cleared.");
 });
 
@@ -339,7 +521,17 @@ btn.analyze.addEventListener("click", async () => {
       body: JSON.stringify({
         student_id: state.user.school_id,
         daily_minutes: Number(el.dailyMinutes.value || 45),
-        events: state.events,
+        events: state.events.map((e) => ({
+          student_id: e.student_id,
+          timestamp: e.timestamp,
+          question_id: e.question_id,
+          concept_id: e.concept_id,
+          correct: e.correct,
+          response_time_sec: e.response_time_sec,
+          attempt_no: e.attempt_no,
+          difficulty: e.difficulty,
+          source: e.source,
+        })),
       }),
     });
     renderAnalysis(data);
@@ -351,6 +543,7 @@ btn.analyze.addEventListener("click", async () => {
 });
 
 btn.metrics.addEventListener("click", refreshMetrics);
+btn.youtube.addEventListener("click", () => renderYoutubeLinks(el.weakTopicInput.value));
 
 (function init() {
   loadLocal();
@@ -358,4 +551,5 @@ btn.metrics.addEventListener("click", refreshMetrics);
   renderModules();
   renderEvents();
   refreshMetrics();
+  drawCharts();
 })();

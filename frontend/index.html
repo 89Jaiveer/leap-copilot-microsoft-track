@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LEAP Copilot - User App</title>
+    <title>LEAP Copilot - Student App</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -21,8 +21,8 @@
       <header class="hero card">
         <div>
           <p class="eyebrow">LEAP COPILOT</p>
-          <h1>Personal Learning Intelligence</h1>
-          <p>Register with school ID, add your own modules and study logs, then receive explainable plans.</p>
+          <h1>Study Planner + AI Insights</h1>
+          <p>Built for students: enter your marks and topics, get weekly plan, deadlines strategy, and clear guidance.</p>
         </div>
         <div class="api-box">
           <label for="apiBase">API Base</label>
@@ -47,9 +47,12 @@
         </article>
 
         <article class="card">
-          <h2>2) Modules</h2>
+          <h2>2) Add Modules + Test Dates</h2>
           <div class="form-grid">
             <label>Module / Topic<input id="moduleInput" placeholder="e.g. algebra_linear" /></label>
+            <label>Next Test Date<input id="moduleDeadline" type="date" /></label>
+          </div>
+          <div class="row">
             <button id="addModuleBtn" class="btn">Add Module</button>
           </div>
           <div id="moduleList" class="chips"></div>
@@ -57,21 +60,26 @@
       </section>
 
       <section class="card">
-        <h2>3) Study Log Input</h2>
-        <div class="form-grid five">
+        <h2>3) Study Log Input (Per Module)</h2>
+        <p class="muted">Enter each attempt/quiz result. This gives personalized analysis per module.</p>
+        <div class="form-grid six">
           <label>Concept
             <select id="eventConcept"></select>
           </label>
-          <label>Correct?
-            <select id="eventCorrect">
-              <option value="1">Yes</option>
-              <option value="0">No</option>
-            </select>
-          </label>
+          <label>Marks Scored<input id="eventMarksObtained" type="number" min="0" value="6" /></label>
+          <label>Total Marks<input id="eventMarksTotal" type="number" min="1" value="10" /></label>
           <label>Response Time (sec)<input id="eventRt" type="number" min="1" value="20" /></label>
           <label>Difficulty (0-1)<input id="eventDifficulty" type="number" min="0" max="1" step="0.01" value="0.6" /></label>
           <label>Attempt No.<input id="eventAttempt" type="number" min="1" value="1" /></label>
         </div>
+        <details class="help-box">
+          <summary>What do these fields mean?</summary>
+          <ul>
+            <li><strong>Response Time:</strong> how long you took. Helps detect time-pressure mistakes.</li>
+            <li><strong>Difficulty:</strong> easy=0.2, medium=0.5, hard=0.8. Helps compare marks fairly.</li>
+            <li><strong>Attempt No.:</strong> 1 for first try, 2+ for retry. Helps detect improvement.</li>
+          </ul>
+        </details>
         <div class="row">
           <button id="addEventBtn" class="btn">Add Log Entry</button>
           <button id="clearEventsBtn" class="btn ghost">Clear Logs</button>
@@ -91,21 +99,52 @@
       <section class="grid two">
         <article class="card">
           <h2>Concept States</h2>
+          <p class="muted">How strong/weak each topic is right now.</p>
           <div id="conceptStates" class="list"></div>
         </article>
         <article class="card">
           <h2>Diagnosis</h2>
+          <p class="muted">Why you are losing marks (concept gap, time pressure, etc).</p>
           <div id="diagnosis" class="list"></div>
         </article>
       </section>
 
       <section class="card">
         <h2>7-Day Plan + Feedback</h2>
+        <p class="muted">Actionable tasks for this week. Send feedback to improve suggestions.</p>
         <div id="plan" class="plan-grid"></div>
+      </section>
+
+      <section class="grid two">
+        <article class="card">
+          <h2>Performance Graphs</h2>
+          <div class="chart-wrap">
+            <h3>Score Trend</h3>
+            <canvas id="trendChart" width="560" height="220"></canvas>
+          </div>
+          <div class="chart-wrap">
+            <h3>Module Average Scores</h3>
+            <canvas id="moduleChart" width="560" height="220"></canvas>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Insights + Deadline Planner</h2>
+          <div id="insights" class="list"></div>
+
+          <h2 style="margin-top: 14px">Weak Topic YouTube Helper</h2>
+          <p class="muted">Enter a weak topic and get useful YouTube resources quickly.</p>
+          <div class="form-grid">
+            <label>Weak Topic<input id="weakTopicInput" placeholder="e.g. Trigonometry identities" /></label>
+            <button id="youtubeBtn" class="btn">Find YouTube Resources</button>
+          </div>
+          <div id="youtubeLinks" class="list"></div>
+        </article>
       </section>
 
       <section class="card">
         <h2>System Metrics</h2>
+        <p class="muted">How trustworthy and usable the AI output is (not your marks).</p>
         <div id="metrics" class="metrics-grid"></div>
       </section>
     </main>
