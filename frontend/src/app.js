@@ -16,6 +16,7 @@ const elements = {
   overrideMinutes: document.getElementById("override-minutes"),
   overrideNote: document.getElementById("override-note"),
   cancelOverrideBtn: document.getElementById("cancel-override-btn"),
+  statusText: document.getElementById("status-text"),
 };
 
 const state = {
@@ -36,6 +37,12 @@ function applyAriaBusy(isBusy) {
       target.setAttribute("aria-busy", isBusy ? "true" : "false");
     }
   });
+}
+
+function setStatus(text) {
+  if (elements.statusText) {
+    elements.statusText.textContent = text;
+  }
 }
 
 function renderAll() {
@@ -67,6 +74,7 @@ async function loadData() {
   state.evidenceById = {};
   state.overrides = {};
   applyAriaBusy(true);
+  setStatus("Loading learning state...");
   setLoading();
 
   try {
@@ -81,11 +89,13 @@ async function loadData() {
       state.evidenceById[state.selectedRecommendationId] = evidence;
     }
     renderAll();
+    setStatus(state.usingDemoData ? "Loaded demo fallback data." : "Loaded live backend data.");
   } catch (error) {
     elements.summaryPanel.innerHTML = `<div class="error-banner">Could not load summary: ${error.message}</div>`;
     elements.recommendationsList.innerHTML = `<div class="error-banner">Could not load recommendations.</div>`;
     elements.evidencePanel.innerHTML = `<div class="error-banner">Could not load evidence.</div>`;
     elements.planGrid.innerHTML = `<div class="error-banner">Could not load 7-day plan.</div>`;
+    setStatus(`Load failed: ${error.message}`);
   } finally {
     applyAriaBusy(false);
   }
@@ -111,28 +121,40 @@ async function handleActionClick(target) {
   if (!recommendation) return;
 
   if (action === "accept") {
-    if (recommendation.backendRecommendationId) {
-      await sendFeedback(
-        recommendation.backendRecommendationId,
-        "accept",
-        `Accepted: ${recommendation.title}`
-      );
+    try {
+      if (recommendation.backendRecommendationId) {
+        await sendFeedback(
+          recommendation.backendRecommendationId,
+          "accept",
+          `Accepted: ${recommendation.title}`
+        );
+      }
+      recommendation.status = "accepted";
+      renderAll();
+      setStatus("Feedback saved: accepted.");
+      await loadData();
+    } catch (error) {
+      setStatus(`Accept failed: ${error.message}`);
     }
-    recommendation.status = "accepted";
-    renderAll();
     return;
   }
 
   if (action === "dismiss") {
-    if (recommendation.backendRecommendationId) {
-      await sendFeedback(
-        recommendation.backendRecommendationId,
-        "reject",
-        `Rejected: ${recommendation.title}`
-      );
+    try {
+      if (recommendation.backendRecommendationId) {
+        await sendFeedback(
+          recommendation.backendRecommendationId,
+          "reject",
+          `Rejected: ${recommendation.title}`
+        );
+      }
+      recommendation.status = "dismissed";
+      renderAll();
+      setStatus("Feedback saved: rejected.");
+      await loadData();
+    } catch (error) {
+      setStatus(`Reject failed: ${error.message}`);
     }
-    recommendation.status = "dismissed";
-    renderAll();
     return;
   }
 
@@ -185,22 +207,28 @@ function bindEvents() {
     if (!payload.note) return;
 
     const recommendation = state.recommendations.find((rec) => rec.id === recId);
-    const result = await saveOverride(
-      state.studentId,
-      recommendation?.backendRecommendationId || recId,
-      payload
-    );
-    state.overrides[recId] = payload;
+    try {
+      const result = await saveOverride(
+        state.studentId,
+        recommendation?.backendRecommendationId || recId,
+        payload
+      );
+      state.overrides[recId] = payload;
 
-    if (recommendation) {
-      recommendation.scheduledDay = payload.day;
-      recommendation.estimatedMinutes = payload.minutes;
-      recommendation.status = "overridden";
-      recommendation.overrideMeta = result;
+      if (recommendation) {
+        recommendation.scheduledDay = payload.day;
+        recommendation.estimatedMinutes = payload.minutes;
+        recommendation.status = "overridden";
+        recommendation.overrideMeta = result;
+      }
+
+      elements.overrideDialog.close();
+      renderAll();
+      setStatus("Feedback saved: edit override.");
+      await loadData();
+    } catch (error) {
+      setStatus(`Override failed: ${error.message}`);
     }
-
-    elements.overrideDialog.close();
-    renderAll();
   });
 }
 

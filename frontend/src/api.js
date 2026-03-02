@@ -144,16 +144,19 @@ export async function loadExplanation(_studentId, _recommendationId) {
 }
 
 export async function saveOverride(_studentId, recommendationId, payload) {
-  const backendRecommendationId = Number(recommendationId) || 1;
+  const backendRecommendationId = Number(recommendationId);
   const note = payload.note || "User override submitted";
 
   try {
+    if (!backendRecommendationId) {
+      throw new Error("Missing backend recommendation id");
+    }
     return await httpJson(resolveUrl(config.endpoints.feedback), {
       method: "POST",
       body: JSON.stringify({
         recommendation_id: backendRecommendationId,
         action: "edit",
-        note,
+        note: `${note} | day=${payload.day} | minutes=${payload.minutes}`,
       }),
     });
   } catch (_error) {

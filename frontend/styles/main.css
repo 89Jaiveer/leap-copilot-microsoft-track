@@ -170,6 +170,29 @@ button:disabled {
   z-index: 2;
 }
 
+.status-strip {
+  width: min(1200px, calc(100vw - 32px));
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-label {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.status-text {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .panel {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.75);
