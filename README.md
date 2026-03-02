@@ -1,14 +1,19 @@
 # LEAP Copilot - Microsoft Track
 
-LEAP Copilot is an AI-powered learning support system that models a student's evolving learning state and generates explainable, actionable weekly plans.
+LEAP Copilot is a user-ready AI learning assistant that accepts real student input (account + modules + study logs) and generates explainable 7-day plans.
 
-## Current Build Status
-Implemented:
-- Phase 1 backend MVP
-- Phase 2/3 integrated dashboard frontend (Jon + backend sync)
+## What Is Implemented
+- User registration with `school_id` + `name`
+- User-defined module/topic setup
+- Study log input (correctness, response time, difficulty, attempt number)
+- Analysis engine for concept state, diagnosis, and 7-day plan
+- Human feedback loop (`accept/edit/reject`)
+- Auditable system metrics
 
-## API Endpoints
+## Backend Endpoints
 - `GET /health`
+- `POST /users/register`
+- `GET /users/{school_id}`
 - `POST /analyze`
 - `POST /analyze/sample`
 - `POST /feedback`
@@ -32,31 +37,22 @@ python3 -m http.server 5173
 Open:
 - `http://127.0.0.1:5173`
 
-Then test:
-- Click `Refresh` to load student dashboard
-- Select recommendation cards to view evidence details
-- Try `Mark Accepted`, `Dismiss`, and `Edit` (override dialog)
-- Re-click `Refresh` to pull latest metrics-backed summary
+## User Flow
+1. Register using school ID + name.
+2. Add your own modules/topics.
+3. Add study log entries.
+4. Run analysis on your own data.
+5. Review concept states, diagnosis, and plan.
+6. Submit feedback actions and watch metrics update.
 
-### Feedback + Metrics quick test
-```bash
-curl -X POST http://127.0.0.1:8000/feedback \
-  -H "Content-Type: application/json" \
-  -d '{"recommendation_id":1,"action":"accept","note":"Looks useful"}'
-
-curl http://127.0.0.1:8000/metrics
-```
-
-## Repository Structure
-- `backend/app/` API and analysis pipeline
-- `frontend/src/` dashboard logic modules
-- `frontend/styles/main.css` polished UI styling
-- `frontend/assets/icons/` iconography and brand assets
-- `data/` sample dataset and request JSON
+## Project Structure
+- `backend/app/` API + analysis + persistence
+- `frontend/` user-facing web app (`index.html`, `app.js`, `styles.css`)
+- `data/` sample and local database artifacts
 - `docs/` architecture and competitive analysis
-- `testbench/` grader run instructions
+- `testbench/` judge run instructions
 
 ## Responsible AI Notes
-- Recommendation outputs include explicit evidence fields.
-- Output schema is deterministic and structured.
-- Student actions are editable with a human override loop (`accept/edit/reject`) and tracked in metrics.
+- Recommendations include evidence fields.
+- Feedback loop allows user override.
+- Metrics provide auditable recommendation quality.

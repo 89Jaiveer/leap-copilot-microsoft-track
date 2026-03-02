@@ -3,94 +3,113 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LEAP Copilot</title>
+    <title>LEAP Copilot - User App</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles/main.css" />
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="background-orb orb-a"></div>
-    <div class="background-orb orb-b"></div>
-    <header class="topbar">
-      <div class="brand">
-        <img src="./assets/icons/logo-leap.svg" alt="LEAP Copilot logo" class="brand-logo" />
+    <div class="bg-grid"></div>
+    <div class="bg-glow glow-a"></div>
+    <div class="bg-glow glow-b"></div>
+
+    <main class="container">
+      <header class="hero card">
         <div>
-          <h1>LEAP Copilot</h1>
-          <p>Evidence-backed learning coach</p>
+          <p class="eyebrow">LEAP COPILOT</p>
+          <h1>Personal Learning Intelligence</h1>
+          <p>Register with school ID, add your own modules and study logs, then receive explainable plans.</p>
         </div>
-      </div>
-      <div class="topbar-controls">
-        <label for="student-id-input">Student ID</label>
-        <input id="student-id-input" type="text" value="S-1024" />
-        <button id="refresh-btn" type="button">Refresh</button>
-      </div>
-    </header>
-    <section class="status-strip">
-      <span class="status-label">Sync status</span>
-      <span id="status-text" class="status-text">Ready</span>
-    </section>
-
-    <main class="layout">
-      <section id="summary-panel" class="panel summary-panel" aria-live="polite"></section>
-
-      <section class="panel recommendations-panel">
-        <div class="panel-title-row">
-          <h2>7-Day Plan</h2>
-          <span id="mode-chip" class="mode-chip hidden">Demo data</span>
+        <div class="api-box">
+          <label for="apiBase">API Base</label>
+          <input id="apiBase" value="http://127.0.0.1:8000" />
+          <button id="healthBtn" class="btn ghost">Check Health</button>
         </div>
-        <div id="plan-grid" class="plan-grid" aria-live="polite"></div>
-        <h2>Recommendations</h2>
-        <div id="recommendations-list" class="recommendations-list" aria-live="polite"></div>
+      </header>
+
+      <section class="status card"><span>Status</span><strong id="statusText">Ready</strong></section>
+
+      <section class="grid two">
+        <article class="card">
+          <h2>1) Create Account</h2>
+          <div class="form-grid">
+            <label>School ID<input id="schoolId" placeholder="e.g. SCH-2026-091" /></label>
+            <label>Name<input id="studentName" placeholder="e.g. Alicia Tan" /></label>
+          </div>
+          <div class="row">
+            <button id="registerBtn" class="btn">Register / Sign In</button>
+            <span id="accountInfo" class="muted">Not signed in</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>2) Modules</h2>
+          <div class="form-grid">
+            <label>Module / Topic<input id="moduleInput" placeholder="e.g. algebra_linear" /></label>
+            <button id="addModuleBtn" class="btn">Add Module</button>
+          </div>
+          <div id="moduleList" class="chips"></div>
+        </article>
       </section>
 
-      <section id="evidence-panel" class="panel evidence-panel" aria-live="polite"></section>
+      <section class="card">
+        <h2>3) Study Log Input</h2>
+        <div class="form-grid five">
+          <label>Concept
+            <select id="eventConcept"></select>
+          </label>
+          <label>Correct?
+            <select id="eventCorrect">
+              <option value="1">Yes</option>
+              <option value="0">No</option>
+            </select>
+          </label>
+          <label>Response Time (sec)<input id="eventRt" type="number" min="1" value="20" /></label>
+          <label>Difficulty (0-1)<input id="eventDifficulty" type="number" min="0" max="1" step="0.01" value="0.6" /></label>
+          <label>Attempt No.<input id="eventAttempt" type="number" min="1" value="1" /></label>
+        </div>
+        <div class="row">
+          <button id="addEventBtn" class="btn">Add Log Entry</button>
+          <button id="clearEventsBtn" class="btn ghost">Clear Logs</button>
+        </div>
+        <div id="eventTableWrap" class="table-wrap"></div>
+      </section>
+
+      <section class="card">
+        <h2>4) Analyze My Data</h2>
+        <div class="row">
+          <label>Daily Study Minutes<input id="dailyMinutes" type="number" min="15" value="45" /></label>
+          <button id="analyzeBtn" class="btn">Run Analysis</button>
+          <button id="metricsBtn" class="btn ghost">Refresh Metrics</button>
+        </div>
+      </section>
+
+      <section class="grid two">
+        <article class="card">
+          <h2>Concept States</h2>
+          <div id="conceptStates" class="list"></div>
+        </article>
+        <article class="card">
+          <h2>Diagnosis</h2>
+          <div id="diagnosis" class="list"></div>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>7-Day Plan + Feedback</h2>
+        <div id="plan" class="plan-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>System Metrics</h2>
+        <div id="metrics" class="metrics-grid"></div>
+      </section>
     </main>
 
-    <dialog id="override-dialog" class="override-dialog">
-      <form method="dialog" id="override-form">
-        <h3>Edit Recommendation</h3>
-        <p class="hint">Adjust schedule or effort. LEAP keeps your override and rationale.</p>
-
-        <label for="override-day">Study Day</label>
-        <select id="override-day" required>
-          <option value="Mon">Monday</option>
-          <option value="Tue">Tuesday</option>
-          <option value="Wed">Wednesday</option>
-          <option value="Thu">Thursday</option>
-          <option value="Fri">Friday</option>
-          <option value="Sat">Saturday</option>
-          <option value="Sun">Sunday</option>
-        </select>
-
-        <label for="override-minutes">Planned Minutes</label>
-        <input id="override-minutes" type="number" min="10" max="180" step="5" required />
-
-        <label for="override-note">Override Note</label>
-        <textarea
-          id="override-note"
-          rows="3"
-          placeholder="Example: Moving this to Thursday after math tutoring."
-          required
-        ></textarea>
-
-        <menu class="dialog-actions">
-          <button type="button" id="cancel-override-btn" class="ghost-btn">Cancel</button>
-          <button type="submit">Save Override</button>
-        </menu>
-      </form>
-    </dialog>
-
-    <template id="loading-template">
-      <div class="skeleton skeleton-line"></div>
-      <div class="skeleton skeleton-line short"></div>
-      <div class="skeleton skeleton-card"></div>
-      <div class="skeleton skeleton-card"></div>
-    </template>
-
-    <script type="module" src="./src/app.js"></script>
+    <script src="./app.js"></script>
   </body>
 </html>

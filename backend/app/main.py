@@ -8,13 +8,15 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .db import compute_metrics, init_db, insert_feedback, insert_recommendation
+from .db import compute_metrics, get_user, init_db, insert_feedback, insert_recommendation, upsert_user
 from .models import (
     AnalyzeRequest,
     FeedbackRequest,
     FeedbackResponse,
     LearningEvent,
     MetricsResponse,
+    UserProfile,
+    UserRegisterRequest,
 )
 from .pipeline import build_seven_day_plan
 
@@ -36,6 +38,20 @@ def on_startup() -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/users/register", response_model=UserProfile)
+def register_user(payload: UserRegisterRequest):
+    user = upsert_user(payload.school_id.strip(), payload.name.strip())
+    return UserProfile(**user)
+
+
+@app.get("/users/{school_id}", response_model=UserProfile)
+def fetch_user(school_id: str):
+    user = get_user(school_id.strip())
+    if not user:
+        raise HTTPException(status_code=404, detail="user not found")
+    return UserProfile(**user)
 
 
 @app.post("/analyze")

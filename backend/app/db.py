@@ -21,6 +21,15 @@ def init_db() -> None:
     with _connect() as conn:
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS users (
+                school_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS recommendations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 student_id TEXT NOT NULL,
@@ -43,6 +52,33 @@ def init_db() -> None:
             """
         )
         conn.commit()
+
+
+def upsert_user(school_id: str, name: str) -> dict:
+    created_at = datetime.now(UTC).isoformat()
+    with _connect() as conn:
+        existing = conn.execute("SELECT school_id, created_at FROM users WHERE school_id = ?", (school_id,)).fetchone()
+        if existing:
+            conn.execute("UPDATE users SET name = ? WHERE school_id = ?", (name, school_id))
+            created_at = existing["created_at"]
+        else:
+            conn.execute(
+                "INSERT INTO users (school_id, name, created_at) VALUES (?, ?, ?)",
+                (school_id, name, created_at),
+            )
+        conn.commit()
+        return {"school_id": school_id, "name": name, "created_at": created_at}
+
+
+def get_user(school_id: str) -> dict | None:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT school_id, name, created_at FROM users WHERE school_id = ?",
+            (school_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return {"school_id": row["school_id"], "name": row["name"], "created_at": row["created_at"]}
 
 
 def insert_recommendation(student_id: str, payload: dict) -> int:

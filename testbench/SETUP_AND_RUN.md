@@ -1,65 +1,25 @@
 # Testbench Setup and Run Guide
 
-This guide is for judges and reviewers to reproduce backend and frontend behavior quickly.
-
 ## Prerequisites
 - Python 3.11+
 - macOS/Linux terminal
 
-## 1) Clone and Enter
+## 1) Clone
 ```bash
 git clone <YOUR_REPO_URL>
 cd leap-copilot-microsoft-track
 ```
 
-## 2) Backend Setup
+## 2) Backend
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
-```
-
-## 3) Run Backend
-```bash
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
-## 4) Verify Service
-```bash
-curl http://127.0.0.1:8000/health
-```
-Expected:
-```json
-{"status":"ok"}
-```
-
-## 5) Analyze Sample Data
-```bash
-curl -X POST http://127.0.0.1:8000/analyze/sample
-```
-Expected behavior:
-- Returns concept states sorted by weakest first.
-- Returns diagnosis entries with scores and evidence.
-- Returns a 7-day plan with actionable tasks.
-- Returns `recommendation_id` for feedback tracking.
-
-## 5.1) Submit Feedback (Human Override Signal)
-```bash
-curl -X POST http://127.0.0.1:8000/feedback \
-  -H "Content-Type: application/json" \
-  -d '{"recommendation_id":1,"action":"accept","note":"Plan is clear"}'
-```
-
-## 5.2) View Metrics
-```bash
-curl http://127.0.0.1:8000/metrics
-```
-Expected behavior:
-- Shows feedback rates (`accept/edit/reject`).
-- Shows `actionability_rate` and `explainability_coverage`.
-
-## 6) Launch Frontend Dashboard
-In a new terminal:
+## 3) Frontend
+In another terminal:
 ```bash
 cd frontend
 python3 -m http.server 5173
@@ -67,29 +27,26 @@ python3 -m http.server 5173
 Open:
 - `http://127.0.0.1:5173`
 
-Then in UI:
-- Keep default `Student ID` or enter custom
-- Click `Refresh`
-- Review `Summary`, `7-Day Plan`, and `Recommendations`
-- Click any recommendation card to open `Why this recommendation?` evidence panel
-- Use actions:
-  - `Mark Accepted` -> sends `/feedback` with `accept`
-  - `Dismiss` -> sends `/feedback` with `reject`
-  - `Edit` -> opens override dialog and sends `/feedback` with `edit`
-- Click `Refresh` again to see updated metrics reflected in summary KPIs
+## 4) User Validation Flow
+1. Register with a school ID and name.
+2. Add at least 2 modules/topics.
+3. Add multiple study logs across those topics.
+4. Run analysis.
+5. Verify:
+- Concept states rendered
+- Diagnosis rendered
+- 7-day plan rendered
+6. Submit feedback actions (`accept`, `edit`, `reject`).
+7. Refresh metrics and confirm rates change.
 
-## 7) Example Direct Analyze Payload
+## 5) API Sanity Commands
 ```bash
-curl -X POST http://127.0.0.1:8000/analyze \
-  -H "Content-Type: application/json" \
-  -d @data/request_example.json
+curl http://127.0.0.1:8000/health
+curl -X POST http://127.0.0.1:8000/users/register -H "Content-Type: application/json" -d '{"school_id":"SCH-100","name":"Alice"}'
+curl -X POST http://127.0.0.1:8000/analyze/sample
+curl http://127.0.0.1:8000/metrics
 ```
 
-## 8) Test Cases Covered by Sample
-- Concept weakness with low accuracy and high response time
-- Fast-but-error-prone behavior
-- Inactivity decay from long study gap
-
 ## Notes
-- This testbench uses non-PII synthetic data.
-- Output is deterministic-format JSON for reproducibility.
+- Uses synthetic/non-PII data for testing.
+- SQLite is used for hackathon persistence.

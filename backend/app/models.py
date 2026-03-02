@@ -90,3 +90,14 @@ class MetricsResponse(BaseModel):
     reject_rate: float
     actionability_rate: float
     explainability_coverage: float
+
+
+class UserRegisterRequest(BaseModel):
+    school_id: str = Field(min_length=2, max_length=64)
+    name: str = Field(min_length=2, max_length=128)
+
+
+class UserProfile(BaseModel):
+    school_id: str
+    name: str
+    created_at: datetime

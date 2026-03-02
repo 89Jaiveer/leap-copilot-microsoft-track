@@ -52,6 +52,22 @@ def build_seven_day_plan(request: AnalyzeRequest) -> AnalyzeResponse:
                     evidence=current.evidence[:4],
                 )
             )
+    elif states:
+        # Ensure users always get actionable output, even when no risk diagnosis is triggered.
+        target = states[0]
+        daily_budget = max(request.daily_minutes, 15)
+        for day in range(1, 8):
+            plan.append(
+                DailyTask(
+                    day=day,
+                    concept_id=target.concept_id,
+                    activity="Reinforcement set: 5 mixed questions + 1 summary note",
+                    duration_min=min(max(15, daily_budget // 2), 45),
+                    expected_outcome="Maintain mastery and prevent future decay",
+                    confidence=round(max(0.5, target.confidence), 3),
+                    evidence=target.evidence[:4],
+                )
+            )
 
     normalized: list[DailyTask] = []
     for item in sorted(plan, key=lambda x: x.day):
